@@ -2,15 +2,15 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { CloseIcon } from "../components/icons";
 import { useBots } from "./store";
-import { StroopyAvatar } from "./StroopyAvatar";
-import { BOT_COLORS, type BotColorId, STROOPIES, type StroopyId, colorHex } from "./stroopies";
+import { MascotAvatar } from "./MascotAvatar";
+import { BOT_COLORS, type BotColorId, MASCOTS, type MascotId, colorHex } from "./mascots";
 
 /** The caller returns focus to the opener in `onClose`. */
 export function CreateBotModal({ onClose }: { onClose: () => void }) {
   const { createBot } = useBots();
   const navigate = useNavigate();
   const [name, setName] = useState("");
-  const [variant, setVariant] = useState<StroopyId>("classic");
+  const [variant, setVariant] = useState<MascotId>("classic");
   const [color, setColor] = useState<BotColorId>("orange");
   const dialog = useRef<HTMLDivElement>(null);
   // On the document, so Escape and the Tab trap still work after a click leaves focus outside a control.
@@ -78,7 +78,7 @@ export function CreateBotModal({ onClose }: { onClose: () => void }) {
           }}
         >
           <div className="modal-body">
-            <StroopyAvatar variant={variant} color={color} size={140} className="modal-preview" />
+            <MascotAvatar variant={variant} color={color} size={140} className="modal-preview" />
             <input
               className="bot-name"
               value={name}
@@ -89,7 +89,7 @@ export function CreateBotModal({ onClose }: { onClose: () => void }) {
               autoFocus
             />
             <div className="variant-grid" role="group" aria-label="Avatar">
-              {STROOPIES.map((s) => (
+              {MASCOTS.map((s) => (
                 <button
                   key={s.id}
                   type="button"
@@ -99,7 +99,7 @@ export function CreateBotModal({ onClose }: { onClose: () => void }) {
                   title={s.label}
                   onClick={() => setVariant(s.id)}
                 >
-                  <StroopyAvatar variant={s.id} color={color} neutral={variant !== s.id} size={52} />
+                  <MascotAvatar variant={s.id} color={color} neutral={variant !== s.id} size={52} />
                 </button>
               ))}
             </div>

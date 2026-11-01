@@ -33,7 +33,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { type Bot, type ChatMessage, DEFAULT_BOT, loadChat, useBots } from "../bots/store";
 import type { Address } from "viem";
 import { claimReady, loadPayments, prepareClaim } from "../claim";
-import { StroopyAvatar } from "../bots/StroopyAvatar";
+import { MascotAvatar } from "../bots/MascotAvatar";
 import {
   ArrowUpIcon,
   CloseIcon,
@@ -653,7 +653,7 @@ export function ChatPage({ bot }: { bot: Bot }) {
   return (
     <div className="view">
       <PageTop
-        avatar={<StroopyAvatar variant={bot.variant} color={bot.color} size={28} />}
+        avatar={<MascotAvatar variant={bot.variant} color={bot.color} size={28} />}
         title={bot.name}
         actions={
           <MoreMenu label="Chat options" trigger={<MoreIcon />}>
@@ -706,7 +706,7 @@ export function ChatPage({ bot }: { bot: Bot }) {
         <div className="flow" ref={flow} role="log" aria-label="Conversation">
           {fresh && (
             <section className="hero">
-              <StroopyAvatar variant={bot.variant} color={bot.color} size={96} />
+              <MascotAvatar variant={bot.variant} color={bot.color} size={96} />
               <h1>Hi! I'm {bot.name}</h1>
               <p className="hero-sub">
                 <strong>Your USDC agent on Arc.</strong> Tell me who should get what and how long they have. I build the

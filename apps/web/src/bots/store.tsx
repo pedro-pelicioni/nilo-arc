@@ -1,12 +1,12 @@
 // Bots the user talks to, and each bot's chat history, kept in localStorage.
 // Storage can be missing or full (private windows); everything still works in memory.
 import { type ReactNode, createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { BOT_COLORS, type BotColorId, STROOPIES, type StroopyId } from "./stroopies";
+import { BOT_COLORS, type BotColorId, MASCOTS, type MascotId } from "./mascots";
 
 export interface Bot {
   id: string;
   name: string;
-  variant: StroopyId;
+  variant: MascotId;
   color: BotColorId;
   createdAt: number;
 }
@@ -40,7 +40,7 @@ function write(key: string, value: unknown) {
   }
 }
 
-const isVariant = (v: unknown): v is StroopyId => STROOPIES.some((s) => s.id === v);
+const isVariant = (v: unknown): v is MascotId => MASCOTS.some((s) => s.id === v);
 const isColor = (v: unknown): v is BotColorId => BOT_COLORS.some((c) => c.id === v);
 
 function loadBots(): Bot[] {

@@ -13,7 +13,7 @@ import {
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { CreateBotModal } from "../bots/CreateBotModal";
 import { DEFAULT_BOT, DEFAULT_PREVIEW, useBots } from "../bots/store";
-import { StroopyAvatar } from "../bots/StroopyAvatar";
+import { MascotAvatar } from "../bots/MascotAvatar";
 import { profileLabel, useProfile } from "../profile";
 import { network } from "../arc";
 import { WATCHING, useWallet } from "../wallet";
@@ -225,7 +225,7 @@ function Sidebar({
         <p className="side-label">Bots</p>
         {shown.map((b) => (
           <NavLink key={b.id} to={`/chat/${b.id}`} className="side-row" onClick={onNavigate}>
-            <StroopyAvatar variant={b.variant} color={b.color} size={52} />
+            <MascotAvatar variant={b.variant} color={b.color} size={52} />
             <span className="row-text">
               <strong>{b.name}</strong>
               <span>{previews[b.id] ?? DEFAULT_PREVIEW}</span>

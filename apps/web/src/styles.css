@@ -276,12 +276,12 @@ a { color: var(--accent); }
 
 @media (prefers-reduced-motion: reduce) { .voice-overlay { animation: none; } }
 
-/* ---------- Stroopy avatars ---------- */
-.stroopy { position: relative; flex: none; display: inline-flex; align-items: center; justify-content: center; }
-.stroopy-tint { position: absolute; inset: 0; }
-.stroopy-tint img { display: block; width: 100%; height: 100%; object-fit: contain; mix-blend-mode: multiply; user-select: none; }
-.stroopy-blob { width: 86%; height: 78%; display: flex; align-items: center; justify-content: center; gap: 13%; }
-.stroopy-blob i { display: block; border-radius: 999px; background: #151515; opacity: 0.85; }
+/* ---------- Mascot avatars ---------- */
+.mascot { position: relative; flex: none; display: inline-flex; align-items: center; justify-content: center; }
+.mascot-tint { position: absolute; inset: 0; }
+.mascot-tint img { display: block; width: 100%; height: 100%; object-fit: contain; mix-blend-mode: multiply; user-select: none; }
+.mascot-blob { width: 86%; height: 78%; display: flex; align-items: center; justify-content: center; gap: 13%; }
+.mascot-blob i { display: block; border-radius: 999px; background: #151515; opacity: 0.85; }
 
 /* ---------- Create bot ---------- */
 .modal-backdrop { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; padding: 16px; background: rgba(0, 0, 0, 0.6); }

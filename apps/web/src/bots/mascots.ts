@@ -1,17 +1,17 @@
-// Stroopy avatars for bots. Each image is a grayscale Stroopy on a transparent
-// background; the app tints it with the bot's color, so one file serves every color.
-// Add an entry only once public/stroopies/<id>.png exists.
+// Nilo's mascot for bots: a little arch (Arc) with a ring around it (Circle). Each image is a
+// grayscale SVG on a transparent background; the app tints it with the bot's color, so one file
+// serves every color. Add an entry only once public/mascots/<id>.svg exists.
 
-export const STROOPIES = [
+export const MASCOTS = [
   { id: "classic", label: "Classic" },
-  { id: "antenna", label: "Antenna" },
-  { id: "beanie", label: "Beanie" },
+  { id: "sleepy", label: "Sleepy" },
+  { id: "sprout", label: "Sprout" },
   { id: "graduate", label: "Graduate" },
 ] as const;
 
-export type StroopyId = (typeof STROOPIES)[number]["id"];
+export type MascotId = (typeof MASCOTS)[number]["id"];
 
-export const stroopySrc = (id: StroopyId) => `/stroopies/${id}.png`;
+export const mascotSrc = (id: MascotId) => `/mascots/${id}.svg`;
 
 export const BOT_COLORS = [
   { id: "white", hex: "#f2f2f2" },

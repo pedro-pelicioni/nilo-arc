@@ -1,5 +1,5 @@
 import { type CSSProperties, useState } from "react";
-import { type BotColorId, STROOPIES, type StroopyId, colorHex, stroopySrc } from "./stroopies";
+import { type BotColorId, MASCOTS, type MascotId, colorHex, mascotSrc } from "./mascots";
 
 export const NEUTRAL_TINT = "#6f6f6f";
 
@@ -18,7 +18,7 @@ const BLOBS = [
 ];
 
 interface Props {
-  variant: StroopyId;
+  variant: MascotId;
   color?: BotColorId;
   size?: number;
   /** Gray, for unselected choices. */
@@ -27,22 +27,22 @@ interface Props {
 }
 
 /**
- * A Stroopy tinted with the bot's color: the grayscale image is used as a mask
+ * The mascot tinted with the bot's color: the grayscale image is used as a mask
  * over the tint and multiplied on top, so light parts take the color and the
- * dark visor and outlines stay dark.
+ * dark eyes and outlines stay dark.
  */
-export function StroopyAvatar({ variant, color = "gray", size = 52, neutral, className }: Props) {
-  const src = stroopySrc(variant);
+export function MascotAvatar({ variant, color = "gray", size = 52, neutral, className }: Props) {
+  const src = mascotSrc(variant);
   const [failedSrc, setFailedSrc] = useState<string | null>(null);
   const tint = neutral ? NEUTRAL_TINT : colorHex(color);
-  const index = STROOPIES.findIndex((s) => s.id === variant);
+  const index = MASCOTS.findIndex((s) => s.id === variant);
   const box: CSSProperties = { width: size, height: size };
 
   if (failedSrc === src || broken.has(src)) {
     return (
-      <span className={`stroopy ${className ?? ""}`} style={box} aria-hidden="true">
+      <span className={`mascot ${className ?? ""}`} style={box} aria-hidden="true">
         <span
-          className="stroopy-blob"
+          className="mascot-blob"
           style={{ background: tint, borderRadius: BLOBS[index % BLOBS.length], transform: `rotate(${(index % 3) * 8 - 8}deg)` }}
         >
           <i style={{ width: Math.max(2, size * 0.07), height: size * 0.2 }} />
@@ -54,8 +54,8 @@ export function StroopyAvatar({ variant, color = "gray", size = 52, neutral, cla
 
   const mask = `url(${src}) center / contain no-repeat`;
   return (
-    <span className={`stroopy ${className ?? ""}`} style={box} aria-hidden="true">
-      <span className="stroopy-tint" style={{ background: tint, WebkitMask: mask, mask }}>
+    <span className={`mascot ${className ?? ""}`} style={box} aria-hidden="true">
+      <span className="mascot-tint" style={{ background: tint, WebkitMask: mask, mask }}>
         <img
           src={src}
           alt=""
