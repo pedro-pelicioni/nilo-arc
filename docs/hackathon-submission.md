@@ -7,7 +7,7 @@ Fill in the `TODO` lines after the mainnet deploy.
 | Field | Value |
 |---|---|
 | Arc Studio project | https://studio.arc.io/app/7a700c29-561b-4cb6-98f2-826fbaa03a23 |
-| Live app | TODO (public URL) |
+| Live app | https://nilo-arc.onrender.com |
 | Public repo | https://github.com/pedro-pelicioni/nilo-arc |
 | NiloAgent (mainnet) | TODO address, https://explorer.arc.io/address/TODO |
 | NiloPayments (mainnet) | TODO address, https://explorer.arc.io/address/TODO |

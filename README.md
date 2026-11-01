@@ -4,6 +4,9 @@
 
 Arc Microgrants · Built with [Arc Studio](https://studio.arc.io/app/7a700c29-561b-4cb6-98f2-826fbaa03a23) · Arc Testnet (mainnet last)
 
+**Live app: <https://nilo-arc.onrender.com>** (Arc Testnet; on Render's free plan the first visit can take a minute
+to wake it up)
+
 Nilo is a chat wallet and investing agent for USDC on Arc. You talk to it ("send 5 USDC to maria, she has 10
 minutes", "invest at most 30 dollars a week, I'm conservative"), it builds the transaction, and before you sign it
 explains the transaction from its own calldata, not from what the AI said. Two contracts make it safe:
@@ -167,7 +170,9 @@ To run on mainnet, set `ARC_NETWORK=mainnet` and `VITE_ARC_NETWORK=mainnet` once
   reference: a conversion ("send R$ 50") is shown before you sign, and what you sign is the USDC amount.
 - Recipients are a full `0x…` address or a nickname from a fixed demo list (`alice`, `maria`, `bob`).
 - One operator key invests and relays gasless claims. Its gas is paid from its own USDC.
-- The agent's activity log lives in a JSON file on the server.
+- The agent's activity log lives in a JSON file on the server. The demo runs on Render's free plan, which sleeps
+  after 15 minutes without visits: the scheduled run waits until the next visit, and the log starts over when the
+  instance restarts. The mandates themselves are on-chain and never reset.
 - Not audited beyond Arc Studio's automated review. Use small amounts.
 
 ## Next

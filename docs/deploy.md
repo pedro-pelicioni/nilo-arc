@@ -29,7 +29,10 @@ docker run -d --name nilo-arc --restart unless-stopped -p 5173:5173 \
 ```
 
 `/app/data` keeps the agent's activity log and the list of wallets it watches. Serve it over HTTPS behind any
-reverse proxy. Hosts that build from a Dockerfile (Render, Railway, Fly.io) work too: point them at this
+reverse proxy.
+
+The public demo runs on Render (free web service, Docker runtime, built from this repository, the environment
+above). Render sets `PORT` itself and the server listens on it. Hosts that build from a Dockerfile (Render, Railway, Fly.io) work too: point them at this
 repository, set the environment above and expose port 5173. The agent runs on a timer inside the server, so the
 host must keep it running rather than scale it to zero.
 
