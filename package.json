@@ -1,0 +1,24 @@
+{
+  "name": "nilo",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "test": "npm test -w packages/core",
+    "dev:server": "npm run dev -w apps/server",
+    "dev:web": "npm run dev -w apps/web",
+    "dev": "concurrently -k -n server,web -c blue,magenta \"npm run dev -w apps/server\" \"npm run dev -w apps/web\"",
+    "test:contracts": "cd contracts && forge test",
+    "smoke:testnet": "tsx --env-file=.env scripts/smoke-testnet.ts",
+    "smoke:server": "tsx --env-file=.env scripts/smoke-server.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "concurrently": "^10.0.6",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0"
+  }
+}
