@@ -5,3 +5,4 @@ dist
 !.env.example
 .claude/
 data
+video/

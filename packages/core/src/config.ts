@@ -56,7 +56,6 @@ export interface PriceConfig {
 export const USDC_DECIMALS = 6;
 export const UNITS_PER_USDC = 1_000_000n;
 
-const ZERO = "0x0000000000000000000000000000000000000000" as Address;
 const USDC = "0x3600000000000000000000000000000000000000" as Address;
 const OPERATOR = "0x59782DC984d9F4e6A37c08B9A63B0DCf77954E1f" as Address;
 
@@ -85,8 +84,8 @@ export const NETWORKS: Record<NetworkId, ArcNetwork> = {
     rpcUrl: "https://rpc.mainnet.arc.io",
     explorer: "https://explorer.arc.io",
     usdc: USDC,
-    payments: ZERO,
-    agent: ZERO,
+    payments: "0xe98557734f797583c0b5e288e2cadfc09e826ab6",
+    agent: "0x6debfa160cc1fd5ef06251690375d3887137e66c",
     operator: OPERATOR,
     vaults: [
       { address: "0xbeef0016cb2fd5c352ea7ca08a9f54739dfa7298", name: "Steakhouse Prime USDC", slot: "prime" },
