@@ -7,10 +7,10 @@ Fill in the `TODO` lines after the mainnet deploy.
 | Field | Value |
 |---|---|
 | Arc Studio project | https://studio.arc.io/app/7a700c29-561b-4cb6-98f2-826fbaa03a23 |
-| Live app | https://nilo-arc.onrender.com |
+| Live app | https://nilo-arc.onrender.com (Arc mainnet) · https://nilo-arc-testnet.onrender.com (testnet, faucet USDC) |
 | Public repo | https://github.com/pedro-pelicioni/nilo-arc |
-| NiloAgent (mainnet) | TODO address, https://explorer.arc.io/address/TODO |
-| NiloPayments (mainnet) | TODO address, https://explorer.arc.io/address/TODO |
+| NiloAgent (mainnet) | `0x6debfa160cc1fd5ef06251690375d3887137e66c`, https://explorer.arc.io/address/0x6debfa160cc1fd5ef06251690375d3887137e66c |
+| NiloPayments (mainnet) | `0xe98557734f797583c0b5e288e2cadfc09e826ab6`, https://explorer.arc.io/address/0xe98557734f797583c0b5e288e2cadfc09e826ab6 |
 | Example mainnet tx moving USDC | TODO hash, https://explorer.arc.io/tx/TODO |
 | Video walkthrough | TODO |
 | Builder profile | TODO (GitHub / X / Farcaster) |

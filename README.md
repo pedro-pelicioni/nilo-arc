@@ -2,10 +2,11 @@
 
 **Your USDC works while you sleep.**
 
-Arc Microgrants · Built with [Arc Studio](https://studio.arc.io/app/7a700c29-561b-4cb6-98f2-826fbaa03a23) · Arc Testnet (mainnet last)
+Arc Microgrants · Built with [Arc Studio](https://studio.arc.io/app/7a700c29-561b-4cb6-98f2-826fbaa03a23) · Live on Arc mainnet
 
-**Live app: <https://nilo-arc.onrender.com>** (Arc Testnet; on Render's free plan the first visit can take a minute
-to wake it up)
+**Live app: <https://nilo-arc.onrender.com>** (Arc mainnet, real USDC) · **Try it with test USDC:
+<https://nilo-arc-testnet.onrender.com>** (Arc Testnet, [faucet](https://faucet.circle.com)). Both run on Render's
+free plan: the first visit can take a minute to wake them up.
 
 Nilo is a chat wallet and investing agent for USDC on Arc. You talk to it ("send 5 USDC to maria, she has 10
 minutes", "invest at most 30 dollars a week, I'm conservative"), it builds the transaction, and before you sign it
@@ -123,8 +124,13 @@ The explanation is generated from the calldata with fixed templates; the AI does
 |---|---|---|
 | Arc Testnet (5042002) | NiloAgent | [`0x16f0819135205b7d710d99ef92c69173e2d464c6`](https://explorer.testnet.arc.io/address/0x16f0819135205b7d710d99ef92c69173e2d464c6) |
 | Arc Testnet (5042002) | NiloPayments | [`0x20376ca84c65242097b57ad1e5a122f86e12f305`](https://explorer.testnet.arc.io/address/0x20376ca84c65242097b57ad1e5a122f86e12f305) |
-| Arc (5042) | NiloAgent | not deployed yet |
-| Arc (5042) | NiloPayments | not deployed yet |
+| Arc (5042) | NiloAgent | [`0x6debfa160cc1fd5ef06251690375d3887137e66c`](https://explorer.arc.io/address/0x6debfa160cc1fd5ef06251690375d3887137e66c) |
+| Arc (5042) | NiloPayments | [`0xe98557734f797583c0b5e288e2cadfc09e826ab6`](https://explorer.arc.io/address/0xe98557734f797583c0b5e288e2cadfc09e826ab6) |
+
+Mainnet was deployed with the same [deploy script](contracts/script/DeployNilo.s.sol) Arc Studio wrote for testnet
+([NiloAgent](https://explorer.arc.io/tx/0x539d4ae9dda248754501e3b52d6e177645d67659d27e0b0bfaa4e4f0d9908221),
+[NiloPayments](https://explorer.arc.io/tx/0x7655df8a45d99f34176058e75190899ef7942e442405c35ac04d2a0ba041b654)).
+Its vaults are Steakhouse Prime USDC and Gauntlet USDC Balanced.
 
 USDC on Arc is the native gas token; its ERC-20 interface is `0x3600000000000000000000000000000000000000`
 (6 decimals). Nilo's operator is `0x59782DC984d9F4e6A37c08B9A63B0DCf77954E1f`.
@@ -150,7 +156,7 @@ Get test USDC for your wallet (and for the operator, which pays the gas of inves
 | `npx tsx --env-file=.env scripts/smoke-server.ts` | The same through the running server, the way the app calls it: `/api/sponsor-claim` for an empty wallet (and its refusals), then `/api/agent/activate` splitting across both vaults. Needs `npm run dev`. |
 | `npx tsx --env-file=.env scripts/fund-demo.ts 1` | Sends 1 USDC from the operator to each demo account. |
 
-To run on mainnet, set `ARC_NETWORK=mainnet` and `VITE_ARC_NETWORK=mainnet` once the mainnet addresses are in
+To run on mainnet, set `ARC_NETWORK=mainnet` and `VITE_ARC_NETWORK=mainnet`; the addresses are in
 [`packages/core/src/config.ts`](packages/core/src/config.ts). The Docker image and the server setup are in
 [docs/deploy.md](docs/deploy.md).
 
