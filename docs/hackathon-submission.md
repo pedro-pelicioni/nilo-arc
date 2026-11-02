@@ -11,7 +11,7 @@ Fill in the `TODO` lines after the mainnet deploy.
 | Public repo | https://github.com/pedro-pelicioni/nilo-arc |
 | NiloAgent (mainnet) | `0x6debfa160cc1fd5ef06251690375d3887137e66c`, https://explorer.arc.io/address/0x6debfa160cc1fd5ef06251690375d3887137e66c |
 | NiloPayments (mainnet) | `0xe98557734f797583c0b5e288e2cadfc09e826ab6`, https://explorer.arc.io/address/0xe98557734f797583c0b5e288e2cadfc09e826ab6 |
-| Example mainnet tx moving USDC | TODO hash, https://explorer.arc.io/tx/TODO |
+| Example mainnet tx moving USDC | `0x9f9d7e2e20dde8071ae83ad6f6bdf2a03530e51d5271710ba1f92c869c47acda` (the agent invests 1.197068 USDC of a user's wallet into Steakhouse Prime USDC), https://explorer.arc.io/tx/0x9f9d7e2e20dde8071ae83ad6f6bdf2a03530e51d5271710ba1f92c869c47acda |
 | Video walkthrough | TODO |
 | Builder profile | TODO (GitHub / X / Farcaster) |
 
@@ -45,6 +45,18 @@ behalf inside limits the user signed.
 - **App:** Arc Studio reviewed the app's onchain layer against its contracts (ABI and struct encoding, the EIP-712
   claim domain, Arc's 6- vs 18-decimal USDC, the relayer and agent math) and wrote a fork test against the deployed
   contracts.
+
+## Working on Arc mainnet (2 Nov 2026)
+
+A real user wallet on Arc mainnet signed a Balanced mandate in the live app, and Nilo's agent invested its idle
+USDC into the two Morpho vaults, with the shares minted to the user's wallet and 1 USDC kept as the reserve:
+
+| Flow | Transaction |
+|---|---|
+| The user approves NiloAgent for the mandate's length (500 USDC: 100 a week for 30 days) | [approve](https://explorer.arc.io/tx/0xbb47bdc67fd401abb8b99b488ca4d1ec0ecdc3c2092331a105687628a5c0cf9f) |
+| The user signs the mandate (100 USDC a week, keep 1 USDC, Steakhouse Prime + Gauntlet Balanced) | [setMandate](https://explorer.arc.io/tx/0xb85893ab7949ee40060187bcb54be9de745ab9b2fdaa97898654e52a9a818040) |
+| The agent invests 1.197068 USDC into Steakhouse Prime USDC (60%) | [invest](https://explorer.arc.io/tx/0x9f9d7e2e20dde8071ae83ad6f6bdf2a03530e51d5271710ba1f92c869c47acda) |
+| The agent invests 0.798045 USDC into Gauntlet USDC Balanced (40%) | [invest](https://explorer.arc.io/tx/0xad4643200a79cf75daff69859b9f2fdcae35ae7e95307461eb9dd64644b4f2f6) |
 
 ## Working on Arc Testnet (1 Nov 2026)
 

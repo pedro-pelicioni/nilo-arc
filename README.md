@@ -130,7 +130,11 @@ The explanation is generated from the calldata with fixed templates; the AI does
 Mainnet was deployed with the same [deploy script](contracts/script/DeployNilo.s.sol) Arc Studio wrote for testnet
 ([NiloAgent](https://explorer.arc.io/tx/0x539d4ae9dda248754501e3b52d6e177645d67659d27e0b0bfaa4e4f0d9908221),
 [NiloPayments](https://explorer.arc.io/tx/0x7655df8a45d99f34176058e75190899ef7942e442405c35ac04d2a0ba041b654)).
-Its vaults are Steakhouse Prime USDC and Gauntlet USDC Balanced.
+Its vaults are Steakhouse Prime USDC and Gauntlet USDC Balanced. The first mandate on mainnet: a user signed
+a Balanced mandate and the agent
+[invested 1.197 USDC into Steakhouse Prime](https://explorer.arc.io/tx/0x9f9d7e2e20dde8071ae83ad6f6bdf2a03530e51d5271710ba1f92c869c47acda)
+and [0.798 USDC into Gauntlet](https://explorer.arc.io/tx/0xad4643200a79cf75daff69859b9f2fdcae35ae7e95307461eb9dd64644b4f2f6),
+shares minted to the user's wallet.
 
 USDC on Arc is the native gas token; its ERC-20 interface is `0x3600000000000000000000000000000000000000`
 (6 decimals). Nilo's operator is `0x59782DC984d9F4e6A37c08B9A63B0DCf77954E1f`.
