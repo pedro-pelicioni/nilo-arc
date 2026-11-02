@@ -1,0 +1,30 @@
+# Nilo on Arc
+
+> Nilo is a chat wallet and investing agent for USDC on Arc (Circle's L1), built with Arc Studio for Arc Microgrants. Payments wait in escrow until a deadline and an empty wallet claims them gaslessly; a signed mandate lets Nilo's agent invest idle USDC into Morpho vaults while the user sleeps, with shares minted to the user and a morning briefing. Every transaction is decoded from its own calldata before signing. Live on Arc mainnet (chain 5042): NiloAgent 0x6debfa160cc1fd5ef06251690375d3887137e66c, NiloPayments 0xe98557734f797583c0b5e288e2cadfc09e826ab6.
+
+Start with docs/JUDGING.md: it maps each hackathon requirement to evidence (addresses, transaction hashes, tests) and lists read-only commands to verify them on chain.
+
+## Evidence
+
+- [Requirements → evidence](docs/JUDGING.md): Arc Studio usage, mainnet contracts and transactions, live apps, tests, safety model, verify commands
+- [Submission draft](docs/hackathon-submission.md): the DoraHacks text, testnet and mainnet transaction tables
+- [Arc Studio integration review](docs/arc-studio-integration-review.md): the 11 issues Arc Studio found in the app and how each was fixed
+- [README](README.md): product, how investing works, the mandate rules, contracts, quick start
+
+## Contracts (Solidity, written and tested with Arc Studio)
+
+- [NiloAgent.sol](contracts/NiloAgent.sol): mandates (weekly cap, reserve, vault allowlist, expiry); operator-only `invest` into ERC-4626 vaults with shares minted to the user
+- [NiloPayments.sol](contracts/NiloPayments.sol): escrowed USDC payments with a deadline; `claim`, gasless `claimFor` (EIP-712, ECDSA then ERC-1271), `recover`
+- [Deploy script](contracts/script/DeployNilo.s.sol) and [tests](contracts/test) (163 unit/fuzz/invariant) plus a [fork suite](contracts/test-integration/NiloFork.t.sol) (19)
+
+## App
+
+- [packages/core](packages/core/src): networks and addresses, ABIs, validation, call builders, the calldata decoders (explain.ts, explainAgent.ts), agent math
+- [apps/server](apps/server/src): Hono API: chat extraction, gasless-claim relayer (sponsor.ts), the scheduled agent (agent/run.ts), chain-rebuilt agent log (agent/chainlog.ts), market prices (market.ts)
+- [apps/web](apps/web/src): React app: Chat, Agent (mandate, positions, morning briefing), Claim, Sent; any EIP-1193 wallet, MetaMask deep link on phones
+
+## Live
+
+- [Mainnet app](https://nilo-arc.onrender.com)
+- [Testnet app](https://nilo-arc-testnet.onrender.com)
+- [Arc Studio project](https://studio.arc.io/app/7a700c29-561b-4cb6-98f2-826fbaa03a23)

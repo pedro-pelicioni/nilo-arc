@@ -8,6 +8,10 @@ Arc Microgrants · Built with [Arc Studio](https://studio.arc.io/app/7a700c29-56
 <https://nilo-arc-testnet.onrender.com>** (Arc Testnet, [faucet](https://faucet.circle.com)). Both run on Render's
 free plan: the first visit can take a minute to wake them up.
 
+**Reviewing this project (human or AI)?** Start at [docs/JUDGING.md](docs/JUDGING.md): every hackathon requirement
+mapped to evidence (mainnet addresses, transaction hashes, tests) with read-only commands to verify it on chain.
+An index for agents is in [llms.txt](llms.txt).
+
 Nilo is a chat wallet and investing agent for USDC on Arc. You talk to it ("send 5 USDC to maria, she has 10
 minutes", "invest at most 30 dollars a week, I'm conservative"), it builds the transaction, and before you sign it
 explains the transaction from its own calldata, not from what the AI said. Two contracts make it safe:
@@ -16,7 +20,8 @@ explains the transaction from its own calldata, not from what the AI said. Two c
   it before, and if nobody does, only you can take it back after. A recipient with an empty wallet still claims: they
   sign a message and Nilo's relayer pays the gas.
 - **NiloAgent**: an agent that invests your idle USDC into Morpho vaults on Arc, inside a mandate you sign once.
-  It never holds your key or your funds: the vault shares are minted straight to your wallet.
+  It never holds your key or your funds: the vault shares are minted straight to your wallet. When you're back,
+  a **Good morning** briefing says what it invested, what your vaults are worth now and how BTC and ETH moved.
 
 ## Contents
 
@@ -71,8 +76,10 @@ npm run test:fork  # against the contracts deployed on Arc Testnet
    sign, the browser decodes both calls and refuses anything else.
 4. **Nilo invests while you sleep.** The server checks every wallet with a mandate on a schedule
    (`AGENT_INTERVAL_MINUTES`, 60 by default) and splits the USDC above your reserve across your vaults.
-5. **Check in when you are back.** The Agent page shows what is invested in each vault, what is in your wallet,
-   what is left of this week's limit, and "While you were away", the log of what the agent did.
+5. **Check in when you are back.** The Agent page opens with a briefing: what the agent invested in the last 24
+   hours, what your vaults are worth now and how much more than it put in, and BTC/ETH over 24 hours (Coinbase).
+   Below it: each vault, your wallet, what is left of this week's limit, and "While you were away", every move
+   with its transaction. The server rebuilds that log from NiloAgent's events, so a restart loses nothing.
 6. **Withdraw or revoke at any time.** Withdrawing redeems your vault shares straight to your wallet; Nilo isn't
    involved. Revoking ends the mandate and sets the agent's allowance to 0.
 
@@ -170,8 +177,8 @@ To run on mainnet, set `ARC_NETWORK=mainnet` and `VITE_ARC_NETWORK=mainnet`; the
 |---|---|
 | [`contracts`](contracts) | NiloAgent and NiloPayments, their Foundry tests and the deploy script, from Arc Studio. |
 | [`packages/core`](packages/core) | Pure TypeScript: Arc networks and addresses, ABIs, intent schema, validation, call builders, the decoders, payment views, the mandate and price math. |
-| [`apps/server`](apps/server) | Hono. `POST /api/extract` (chat → structured request), `POST /api/sponsor-claim` (gasless claim relayer), `POST /api/voice/session` (voice mode), and `/api/agent` (status, activate, run) plus the scheduled agent. |
-| [`apps/web`](apps/web) | Vite + React. **Chat** (send, balance, prices, voice), **Agent**, **Claim**, **Sent**. Any EIP-1193 browser wallet. |
+| [`apps/server`](apps/server) | Hono. `POST /api/extract` (chat → structured request), `POST /api/sponsor-claim` (gasless claim relayer), `POST /api/voice/session` (voice mode), `/api/agent` (status, activate, run) plus the scheduled agent and its chain-rebuilt log, and `GET /api/market` (BTC/ETH over 24 h). |
+| [`apps/web`](apps/web) | Vite + React. **Chat** (send, balance, prices, voice), **Agent** (mandate, positions, briefing), **Claim**, **Sent**. Any EIP-1193 browser wallet; on a phone it opens itself inside the MetaMask app. |
 | [`scripts`](scripts) | The testnet smoke test and demo funding. |
 
 ## Limits of v1
@@ -180,9 +187,10 @@ To run on mainnet, set `ARC_NETWORK=mainnet` and `VITE_ARC_NETWORK=mainnet`; the
   reference: a conversion ("send R$ 50") is shown before you sign, and what you sign is the USDC amount.
 - Recipients are a full `0x…` address or a nickname from a fixed demo list (`alice`, `maria`, `bob`).
 - One operator key invests and relays gasless claims. Its gas is paid from its own USDC.
-- The agent's activity log lives in a JSON file on the server. The demo runs on Render's free plan, which sleeps
-  after 15 minutes without visits: the scheduled run waits until the next visit, and the log starts over when the
-  instance restarts. The mandates themselves are on-chain and never reset.
+- The demo runs on Render's free plan, which sleeps after 15 minutes without visits: the hourly run waits for the
+  next visit. On every start the server rebuilds its users and history from NiloAgent's events, so nothing that
+  happened on chain is lost; only "checked, nothing to do" entries live in its local file.
+- The briefing covers the agent's moves, vault values and BTC/ETH prices; market news is not in v1.
 - Not audited beyond Arc Studio's automated review. Use small amounts.
 
 ## Next

@@ -11,8 +11,9 @@ Fill in the `TODO` lines after the mainnet deploy.
 | Public repo | https://github.com/pedro-pelicioni/nilo-arc |
 | NiloAgent (mainnet) | `0x6debfa160cc1fd5ef06251690375d3887137e66c`, https://explorer.arc.io/address/0x6debfa160cc1fd5ef06251690375d3887137e66c |
 | NiloPayments (mainnet) | `0xe98557734f797583c0b5e288e2cadfc09e826ab6`, https://explorer.arc.io/address/0xe98557734f797583c0b5e288e2cadfc09e826ab6 |
+| Gasless claim on mainnet | `0x7cbbbfb096ea7dfaecb52cb0230db47d42df9f90d8b3bbf3c670f9a5fedf63c6`: an empty wallet claims 0.5 USDC; Nilo's relayer pays the gas, https://explorer.arc.io/tx/0x7cbbbfb096ea7dfaecb52cb0230db47d42df9f90d8b3bbf3c670f9a5fedf63c6 |
 | Example mainnet tx moving USDC | `0x9f9d7e2e20dde8071ae83ad6f6bdf2a03530e51d5271710ba1f92c869c47acda` (the agent invests 1.197068 USDC of a user's wallet into Steakhouse Prime USDC), https://explorer.arc.io/tx/0x9f9d7e2e20dde8071ae83ad6f6bdf2a03530e51d5271710ba1f92c869c47acda |
-| Video walkthrough | TODO |
+| Video walkthrough | YouTube link pending upload (title and description below) |
 | Builder profile | TODO (GitHub / X / Farcaster) |
 
 ## Short description
@@ -83,3 +84,41 @@ the app calls it). Every step below succeeded on chain:
 4. Maria, with 0 USDC, claims by signing a message; the relayer pays the gas (15 s).
 5. Agent page: review the mandate (decoded), sign; the agent invests into the Morpho vault; shares in the wallet (20 s).
 6. The mainnet transaction on explorer.arc.io (10 s).
+
+## YouTube
+
+**Title:** Nilo on Arc: a USDC agent that invests while you sleep (Built with Arc Studio)
+
+**Description:**
+
+```text
+Nilo is a chat wallet and investing agent for USDC on Arc, Circle's stablecoin-native L1. Built with Arc Studio for Arc Microgrants. Everything in this video runs on Arc mainnet.
+
+0:00 Maria needs 0.5 USDC in 10 minutes: tell Nilo in plain words
+0:12 Would you sign raw calldata? Nilo decodes it first and checks it against what you asked
+0:31 Maria's wallet is empty: she signs a message and Nilo's relayer pays the gas
+0:42 One mandate: a weekly cap, a reserve and the Morpho vaults you allow
+0:56 Good morning: what the agent invested overnight, what your vaults are worth, BTC and ETH over 24h
+1:09 Built with Arc Studio, live on Arc mainnet
+
+Try it: https://nilo-arc.onrender.com (Arc mainnet)
+Test USDC version: https://nilo-arc-testnet.onrender.com (free USDC at https://faucet.circle.com)
+Code: https://github.com/pedro-pelicioni/nilo-arc
+Arc Studio project: https://studio.arc.io/app/7a700c29-561b-4cb6-98f2-826fbaa03a23
+
+Contracts on Arc mainnet (chain 5042):
+NiloAgent    0x6debfa160cc1fd5ef06251690375d3887137e66c
+NiloPayments 0xe98557734f797583c0b5e288e2cadfc09e826ab6
+
+First mainnet investment: https://explorer.arc.io/tx/0x9f9d7e2e20dde8071ae83ad6f6bdf2a03530e51d5271710ba1f92c869c47acda
+Gasless claim on mainnet: https://explorer.arc.io/tx/0x7cbbbfb096ea7dfaecb52cb0230db47d42df9f90d8b3bbf3c670f9a5fedf63c6
+
+How it stays safe:
+- The AI never builds a transaction. Code builds it, then decodes it back from its own calldata; anything that differs from your request blocks signing.
+- The agent can only invest inside the mandate you signed, only into the vaults you picked, and the vault shares are minted to your wallet. Withdraw or revoke at any time.
+- A payment can only be claimed by its recipient before the deadline, or recovered by you after it.
+
+Contracts reviewed by Arc Studio's auditor and Slither; not externally audited. Use small amounts.
+
+#Arc #Circle #USDC #ArcStudio #Morpho #DeFi #AIagents
+```
