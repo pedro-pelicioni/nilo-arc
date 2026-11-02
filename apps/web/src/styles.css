@@ -88,6 +88,15 @@ a { color: var(--accent); }
 .side-label { margin: 16px 12px 6px; font-size: 13.5px; color: var(--muted); }
 .side-empty { margin: 8px 12px; font-size: 13.5px; color: var(--muted); }
 .side-error { padding: 6px 12px 2px; }
+/* Phone browsers without a wallet: reopen the app inside MetaMask. */
+.wallet-app-bar {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; flex: none;
+  padding: 10px 14px; background: var(--raised); border-bottom: 1px solid var(--border); font-size: 14px; color: var(--muted);
+}
+.wallet-app-btn {
+  flex: none; padding: 9px 14px; border-radius: 999px; background: var(--text); color: var(--bg);
+  font-weight: 600; text-decoration: none; white-space: nowrap;
+}
 
 .side-foot { display: flex; align-items: center; gap: 10px; padding: 10px 2px 0; }
 .me {

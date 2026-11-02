@@ -29,6 +29,12 @@ const MIN_FEE = 25_000_000_000n;
 
 const provider = (): Eip1193 | undefined => (window as unknown as { ethereum?: Eip1193 }).ethereum;
 
+/** Phone browsers (Safari, Chrome) have no wallet extension, so the page opens inside a wallet app instead. */
+const MOBILE = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
+/** This page, opened inside the MetaMask app's browser, where the wallet is injected. */
+export const metaMaskLink = () => `https://metamask.app.link/dapp/${location.host}${location.pathname}${location.search}`;
+
 // Dev only: ?watch=0x… loads a public address without a wallet, to inspect pages. Signing is disabled.
 const WATCH = import.meta.env.DEV ? new URLSearchParams(location.search).get("watch") : null;
 /** True in the dev-only watch mode: a public address with no wallet. */
@@ -96,14 +102,20 @@ export function useWallet() {
   const { address, chainId } = useSyncExternalStore(subscribe, () => state);
   return useMemo(() => {
     const p = provider();
-    const error = !p && !WATCH ? "No browser wallet found. Install MetaMask or Rabby to use Nilo." : null;
+    /** A phone with no wallet in this browser: connecting means opening Nilo in the MetaMask app. */
+    const needsWalletApp = !p && !WATCH && MOBILE;
+    const error = !p && !WATCH && !MOBILE ? "No browser wallet found. Install MetaMask or Rabby to use Nilo." : null;
     return {
       address,
+      needsWalletApp,
       /** Whether the wallet is on the network Nilo uses. */
       onArc: chainId === network.chainId,
       error,
       async connect() {
-        if (!p) return;
+        if (!p) {
+          if (needsWalletApp) location.href = metaMaskLink();
+          return;
+        }
         try {
           const accounts: string[] = await p.request({ method: "eth_requestAccounts" });
           set({ address: (accounts[0] as Address) ?? null });

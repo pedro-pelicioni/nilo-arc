@@ -16,7 +16,7 @@ import { DEFAULT_BOT, DEFAULT_PREVIEW, useBots } from "../bots/store";
 import { MascotAvatar } from "../bots/MascotAvatar";
 import { profileLabel, useProfile } from "../profile";
 import { network } from "../arc";
-import { WATCHING, useWallet } from "../wallet";
+import { WATCHING, metaMaskLink, useWallet } from "../wallet";
 import { Onboarding } from "./Onboarding";
 import {
   AgentIcon,
@@ -127,7 +127,10 @@ export function Shell({ children }: { children: ReactNode }) {
           }}
         />
         <div className="scrim" onClick={() => setDrawerOpen(false)} aria-hidden="true" />
-        <main className="main">{children}</main>
+        <main className="main">
+          <WalletAppBar />
+          {children}
+        </main>
         {creating && <CreateBotModal onClose={closeCreate} />}
         {onboarding && <Onboarding mode={onboarding} onClose={() => setOnboarding(null)} />}
       </div>
@@ -319,13 +322,27 @@ export function MoreMenu({ label, trigger, children }: { label: string; trigger:
   );
 }
 
+/** On a phone browser with no wallet: a bar that reopens Nilo inside the MetaMask app. */
+function WalletAppBar() {
+  const { needsWalletApp } = useWallet();
+  if (!needsWalletApp) return null;
+  return (
+    <div className="wallet-app-bar">
+      <span>To sign on your phone, open Nilo in your wallet app.</span>
+      <a className="wallet-app-btn" href={metaMaskLink()}>
+        Open in MetaMask
+      </a>
+    </div>
+  );
+}
+
 /** Connect button, or the connected address. The wallet itself handles accounts and disconnecting. */
 function WalletButton() {
-  const { address, onArc, connect, error } = useWallet();
+  const { address, onArc, connect, error, needsWalletApp } = useWallet();
   if (!address)
     return (
       <button type="button" className="wallet-btn" onClick={connect} disabled={!!error} title={error ?? undefined}>
-        Connect wallet
+        {needsWalletApp ? "Open in MetaMask" : "Connect wallet"}
       </button>
     );
   return (
