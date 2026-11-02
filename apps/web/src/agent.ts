@@ -57,6 +57,19 @@ async function call<T>(path: string, body?: unknown): Promise<T> {
 
 export const agentStatus = (address: string) => call<AgentStatus>(`/status/${address}`);
 
+/** BTC and ETH over the last 24 hours, for the morning briefing (Coinbase, through the server). */
+export interface Market {
+  at: string;
+  source: string;
+  assets: { symbol: string; price: number; change24h: number }[];
+}
+
+export async function marketNow(): Promise<Market> {
+  const res = await fetch("/api/market");
+  if (!res.ok) throw new Error("Market prices are unavailable right now.");
+  return (await res.json()) as Market;
+}
+
 /** What the user asked for in the chat; anything left out comes from the personality. */
 export interface AgentRequest {
   personality?: "guardian" | "balanced" | "explorer";

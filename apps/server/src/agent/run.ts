@@ -12,11 +12,11 @@ import {
   personality,
   personalityByCode,
   split,
-  unitsToUsdc,
   usdcToUnits,
   vaultInfo,
 } from "@nilo/core";
 import { ChainError, client, hasOperator, network, operator, operatorWallet, requireContract, serial, txLink } from "../chain";
+import { syncFromChain } from "./chainlog";
 import { type Activity, addUser, log, users } from "./store";
 
 /** Below this the agent doesn't bother: the vault would mint almost nothing. */
@@ -126,12 +126,14 @@ export async function activate(user: Address): Promise<Activity[]> {
   const mandate = await mandateOf(user);
   if (!mandate) throw new ChainError("No mandate found on-chain for this account. Sign it first.", 404);
   addUser(user);
-  const name = personalityByCode(mandate.profile)?.name ?? `profile ${mandate.profile}`;
-  log({ user, kind: "mandate", note: `Mandate active: up to ${unitsToUsdc(mandate.limit)} USDC per week as ${name}.` });
+  // The MandateSet event goes into the log with its transaction.
+  await syncFromChain(true);
   return runFor(user, "activate");
 }
 
 export async function runAll() {
+  // Finds every wallet with a mandate, even after a restart wiped the local file.
+  await syncFromChain(true);
   for (const user of users()) {
     await runFor(user as Address, "schedule").catch((e) => console.error(`agent run failed for ${user}:`, e));
   }
@@ -143,6 +145,7 @@ export function startSchedule() {
     console.warn("No NILO_OPERATOR_KEY set: the investing agent and gasless claims are off.");
     return;
   }
+  void syncFromChain(true);
   const minutes = Number(process.env.AGENT_INTERVAL_MINUTES ?? 60);
   setInterval(() => void runAll(), Math.max(1, minutes) * 60_000);
   console.log(`Investing agent on ${network.name} runs every ${minutes} min for ${users().length} account(s).`);

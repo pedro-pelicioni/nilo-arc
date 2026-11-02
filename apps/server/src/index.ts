@@ -7,6 +7,7 @@ import { agent } from "./agent/routes";
 import { startSchedule } from "./agent/run";
 import { ChatSchema, extractIntent } from "./extract";
 import { network } from "./chain";
+import { market } from "./market";
 import { SponsorError, SponsorRequest, sponsorClaim } from "./sponsor";
 import { VoiceError, VoiceRequest, createVoiceSession } from "./voice";
 
@@ -64,6 +65,15 @@ app.post("/api/voice/session", async (c) => {
 });
 
 app.route("/api/agent", agent);
+
+app.get("/api/market", async (c) => {
+  try {
+    return c.json(await market());
+  } catch (e) {
+    console.error("market failed:", e);
+    return c.json({ message: "Market prices are unavailable right now." }, 502);
+  }
+});
 
 // In the Docker image the server also serves the built web app (STATIC_DIR, relative to the working directory).
 // Unknown paths fall back to index.html so BrowserRouter routes survive a reload.

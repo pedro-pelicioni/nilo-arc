@@ -26,6 +26,8 @@ export interface ArcNetwork {
   agent: Address;
   /** Nilo's operator: the only key the agent contract lets call `invest`. Also relays gasless claims. */
   operator: Address;
+  /** The block NiloAgent was deployed in: where the server starts reading its events. */
+  agentFromBlock: bigint;
   vaults: VaultInfo[];
   /** Where to get test USDC, on testnet. */
   faucetUrl?: string;
@@ -71,6 +73,7 @@ export const NETWORKS: Record<NetworkId, ArcNetwork> = {
     payments: "0x20376ca84c65242097b57ad1e5a122f86e12f305",
     agent: "0x16f0819135205b7d710d99ef92c69173e2d464c6",
     operator: OPERATOR,
+    agentFromBlock: 70_185_129n,
     vaults: [
       { address: "0xaabbef1d3971c710276ed41ec791bbe14cdb8e88", name: "EarnKit USDC Vault", slot: "prime" },
       { address: "0x8f2d33b5d4b9b5f02df635ae308f7b4c9da8d2dc", name: "Morpho USDC Vault", slot: "yield" },
@@ -87,6 +90,7 @@ export const NETWORKS: Record<NetworkId, ArcNetwork> = {
     payments: "0xe98557734f797583c0b5e288e2cadfc09e826ab6",
     agent: "0x6debfa160cc1fd5ef06251690375d3887137e66c",
     operator: OPERATOR,
+    agentFromBlock: 29_069_347n,
     vaults: [
       { address: "0xbeef0016cb2fd5c352ea7ca08a9f54739dfa7298", name: "Steakhouse Prime USDC", slot: "prime" },
       { address: "0x10af7238c6355aa8ddb5ed60e2e9b55a72827b51", name: "Gauntlet USDC Balanced", slot: "yield" },

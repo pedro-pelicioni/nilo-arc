@@ -500,6 +500,11 @@ button.connected:disabled { opacity: 1; cursor: default; }
 .mandate-head strong { font-size: 17px; font-weight: 600; }
 .panel.mandate button { display: inline-flex; align-items: center; gap: 8px; }
 .panel-title { font-size: 15px; font-weight: 600; }
+.briefing .panel-title { font-size: 18px; }
+.briefing-lines { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 8px; line-height: 1.5; }
+.briefing-lines li { padding-left: 14px; border-left: 2px solid var(--border-strong); }
+.up { color: var(--ok); }
+.down { color: var(--bad); }
 .activity { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
 .activity-row { display: grid; grid-template-columns: 84px minmax(0, 1fr) auto; gap: 12px; padding: 10px 0; border-top: 1px solid var(--border); align-items: baseline; }
 .activity-row:first-child { border-top: none; }

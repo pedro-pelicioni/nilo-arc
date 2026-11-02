@@ -14,7 +14,7 @@ import {
 import { useCallback, useEffect, useState } from "react";
 import type { Address } from "viem";
 import { useLocation } from "react-router-dom";
-import { type AgentActivity, type AgentRequest, type AgentStatus, activateAgent, agentStatus, runAgent } from "../agent";
+import { type AgentActivity, type AgentRequest, type AgentStatus, type Market, activateAgent, agentStatus, marketNow, runAgent } from "../agent";
 import { contractsReady, explorerTx, network, usdcAllowance, vaultShares } from "../arc";
 import { AgentIcon, MoonIcon } from "../components/icons";
 import { PageTop } from "../components/Layout";
@@ -234,10 +234,83 @@ export function AgentPage() {
   );
 }
 
+const DAY_MS = 86_400_000;
+const greeting = (hour: number) => (hour >= 5 && hour < 12 ? "Good morning" : hour >= 12 && hour < 18 ? "Good afternoon" : "Good evening");
+const money = (n: number) => `$${n.toLocaleString("en-US", { maximumFractionDigits: n >= 100 ? 0 : 2 })}`;
+const pct = (n: number) => `${n >= 0 ? "+" : "−"}${Math.abs(n).toFixed(1)}%`;
+
+/** The morning briefing: what the agent did in the last day, what the vaults are worth, and the market. */
+function Briefing({ status }: { status: AgentStatus }) {
+  const [market, setMarket] = useState<Market | null>(null);
+  useEffect(() => {
+    let live = true;
+    const load = () => marketNow().then((m) => live && setMarket(m), () => {});
+    load();
+    const id = setInterval(load, 5 * 60_000);
+    return () => {
+      live = false;
+      clearInterval(id);
+    };
+  }, []);
+
+  const m = status.mandate!;
+  const now = Date.now();
+  const invests = status.activity.filter((a) => a.kind === "invest" && a.amount);
+  const lastDay = invests.filter((a) => now - Date.parse(a.at) < DAY_MS);
+  const byVault = new Map<string, number>();
+  for (const a of lastDay) {
+    const name = status.positions.find((p) => p.vault.toLowerCase() === a.vault?.toLowerCase())?.name ?? "a vault";
+    byVault.set(name, (byVault.get(name) ?? 0) + Number(a.amount));
+  }
+  const dayTotal = [...byVault.values()].reduce((s, v) => s + v, 0);
+  // Growth since the agent put the USDC in; hidden once withdrawals make it meaningless.
+  const putIn = invests.reduce((s, a) => s + Number(a.amount), 0);
+  const earned = status.invested - putIn;
+
+  return (
+    <section className="panel briefing">
+      <h3 className="panel-title">{greeting(new Date().getHours())}</h3>
+      <ul className="briefing-lines">
+        <li>
+          {lastDay.length > 0
+            ? `In the last 24 hours the agent invested ${usdc(dayTotal, 2)}: ${[...byVault]
+                .map(([name, v]) => `${v.toLocaleString("en-US", { maximumFractionDigits: 6 })} into ${name}`)
+                .join(" and ")}.`
+            : `No new moves in the last 24 hours. Everything above your ${usdc(m.reserve)} reserve is already invested.`}
+        </li>
+        {status.invested > 0 && (
+          <li>
+            Your vaults are worth <strong>{usdc(status.invested, 6)}</strong> now
+            {earned > 0 && putIn > 0 ? (
+              <>
+                , <span className="up">+{earned.toLocaleString("en-US", { maximumFractionDigits: 6 })} USDC</span> more than the agent put in
+              </>
+            ) : null}
+            .
+          </li>
+        )}
+        {market && (
+          <li>
+            Market, last 24 hours:{" "}
+            {market.assets.map((a, i) => (
+              <span key={a.symbol}>
+                {i > 0 && " · "}
+                {a.symbol} {money(a.price)} <span className={a.change24h >= 0 ? "up" : "down"}>{pct(a.change24h)}</span>
+              </span>
+            ))}
+            . <span className="muted">Prices from {market.source}.</span>
+          </li>
+        )}
+      </ul>
+    </section>
+  );
+}
+
 function Dashboard({ status, running, onRun, onFlow }: { status: AgentStatus; running: boolean; onRun: () => void; onFlow: (f: Flow) => void }) {
   const m = status.mandate!;
   return (
     <>
+      <Briefing status={status} />
       <div className="stats">
         <Stat label="Invested" value={usdc(status.invested)} />
         <Stat label="In your wallet" value={usdc(status.wallet)} />

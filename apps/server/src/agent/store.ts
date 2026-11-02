@@ -1,6 +1,7 @@
-// What the agent remembers between runs: which users have activated a mandate,
-// and a log of what it did for them. A JSON file in DATA_DIR; the mandates
-// themselves live on-chain, so losing this file loses only the history.
+// What the agent remembers between runs: which users have a mandate, and a log of
+// what it did for them. A JSON file in DATA_DIR. Mandates, investments and revokes
+// are also rebuilt from NiloAgent's events (chainlog.ts), so losing this file
+// loses only the runs that changed nothing.
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -25,6 +26,8 @@ export interface Activity {
 interface State {
   users: string[];
   activity: Activity[];
+  /** Last block whose NiloAgent events are in the log. */
+  syncedBlock?: string;
 }
 
 const MAX_ACTIVITY = 1_000;
@@ -71,6 +74,22 @@ export function log(entry: Omit<Activity, "id" | "at">): Activity {
   if (state.activity.length > MAX_ACTIVITY) state.activity.splice(0, state.activity.length - MAX_ACTIVITY);
   save();
   return a;
+}
+
+/** Adds an entry read from the chain, once: its id is the event's transaction and log index. */
+export function record(entry: Activity) {
+  const user = entry.user.toLowerCase();
+  if (state.activity.some((a) => a.id === entry.id || (entry.hash && a.hash === entry.hash && a.vault === entry.vault))) return;
+  state.activity.push({ ...entry, user });
+  state.activity.sort((a, b) => a.at.localeCompare(b.at));
+  if (state.activity.length > MAX_ACTIVITY) state.activity.splice(0, state.activity.length - MAX_ACTIVITY);
+}
+
+export const syncedBlock = () => (state.syncedBlock ? BigInt(state.syncedBlock) : null);
+
+export function setSyncedBlock(block: bigint) {
+  state.syncedBlock = block.toString();
+  save();
 }
 
 export const activityFor = (user: string, limit = 50) =>

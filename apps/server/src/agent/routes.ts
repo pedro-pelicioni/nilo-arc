@@ -7,6 +7,7 @@ import { z } from "zod";
 import { agentAbi, erc4626Abi, personalityByCode, unitsToUsdc, vaultInfo } from "@nilo/core";
 import { ChainError, client, network, requireContract } from "../chain";
 import { activate, agentAllowance, mandateOf, remainingFor, runFor, walletUsdc } from "./run";
+import { syncFromChain } from "./chainlog";
 import { activityFor } from "./store";
 
 const Account = z
@@ -61,6 +62,7 @@ agent.get("/status/:address", async (c) => {
   if (!parsed.success) throw new ChainError("Invalid wallet address.");
   const address = parsed.data;
   const agentAddress = requireContract("agent");
+  await syncFromChain();
   const [mandate, usage, remaining, wallet, allowance, held] = await Promise.all([
     mandateOf(address),
     client.readContract({ address: agentAddress, abi: agentAbi, functionName: "usageOf", args: [address] }),
