@@ -76,7 +76,13 @@ the app calls it). Every step below succeeded on chain:
 | A second run skips: this week's limit is used | (no transaction) |
 | alice redeems her shares straight to her wallet | [redeem](https://explorer.testnet.arc.io/tx/0x3e491721a6a5607e53784f004fdee5cdd6b521bc0f0bfecc702b9e1858f8be1a) |
 
-## Video walkthrough (about 90 s)
+## Video walkthrough (90 s, v2: the investing tamagotchi)
+
+Bedtime (Nilo awake) → the real investor quiz → Balanced suggested → the decoded mandate, signed → 00:16 UTC,
+Nilo throws your idle USDC into Steakhouse Prime and Gauntlet, shares back to your wallet → the mainnet
+transaction → Good morning briefing → withdraw or revoke → payments (fast) → Arc Studio → end card.
+
+## Video walkthrough, v1 plan (superseded)
 
 1. Arc Studio project: the contracts, the test run, the deploy (10 s).
 2. Connect a wallet; Nilo adds Arc. Profile quiz → Balanced (10 s).
@@ -87,19 +93,19 @@ the app calls it). Every step below succeeded on chain:
 
 ## YouTube
 
-**Title:** Nilo on Arc: a USDC agent that invests while you sleep (Built with Arc Studio)
+**Title:** Nilo: an investing tamagotchi for your USDC on Arc (Built with Arc Studio)
 
 **Description:**
 
 ```text
-Nilo is a chat wallet and investing agent for USDC on Arc, Circle's stablecoin-native L1. Built with Arc Studio for Arc Microgrants. Everything in this video runs on Arc mainnet.
+Nilo is an investing tamagotchi for your USDC on Arc, Circle's stablecoin-native L1. It learns your investor profile, you sign one mandate, and while you sleep its agent invests your idle USDC into Morpho vaults, with the shares minted to your own wallet. In the morning it tells you what it did. Built with Arc Studio for Arc Microgrants; everything in this video is real, on Arc mainnet.
 
-0:00 Maria needs 0.5 USDC in 10 minutes: tell Nilo in plain words
-0:12 Would you sign raw calldata? Nilo decodes it first and checks it against what you asked
-0:31 Maria's wallet is empty: she signs a message and Nilo's relayer pays the gas
-0:42 One mandate: a weekly cap, a reserve and the Morpho vaults you allow
-0:56 Good morning: what the agent invested overnight, what your vaults are worth, BTC and ETH over 24h
-1:09 Built with Arc Studio, live on Arc mainnet
+0:00 You sleep, Nilo invests: it learns your investor profile (5 questions → Balanced)
+0:18 One signature, decoded from the transaction itself before you sign
+0:29 00:16 UTC: Nilo invests 1.197068 USDC into Steakhouse Prime and 0.798045 into Gauntlet (60/40)
+0:52 Good morning: what it invested, what your vaults are worth now, BTC and ETH over 24h
+1:06 Your shares, your rules; and payments that can't get lost (gas paid for empty wallets)
+1:19 Built with Arc Studio, live on Arc mainnet
 
 Try it: https://nilo-arc.onrender.com (Arc mainnet)
 Test USDC version: https://nilo-arc-testnet.onrender.com (free USDC at https://faucet.circle.com)
@@ -110,12 +116,14 @@ Contracts on Arc mainnet (chain 5042):
 NiloAgent    0x6debfa160cc1fd5ef06251690375d3887137e66c
 NiloPayments 0xe98557734f797583c0b5e288e2cadfc09e826ab6
 
-First mainnet investment: https://explorer.arc.io/tx/0x9f9d7e2e20dde8071ae83ad6f6bdf2a03530e51d5271710ba1f92c869c47acda
-Gasless claim on mainnet: https://explorer.arc.io/tx/0x7cbbbfb096ea7dfaecb52cb0230db47d42df9f90d8b3bbf3c670f9a5fedf63c6
+The night in this video, on the explorer:
+Invest into Steakhouse Prime: https://explorer.arc.io/tx/0x9f9d7e2e20dde8071ae83ad6f6bdf2a03530e51d5271710ba1f92c869c47acda
+Invest into Gauntlet: https://explorer.arc.io/tx/0xad4643200a79cf75daff69859b9f2fdcae35ae7e95307461eb9dd64644b4f2f6
+Gasless claim: https://explorer.arc.io/tx/0x7cbbbfb096ea7dfaecb52cb0230db47d42df9f90d8b3bbf3c670f9a5fedf63c6
 
 How it stays safe:
 - The AI never builds a transaction. Code builds it, then decodes it back from its own calldata; anything that differs from your request blocks signing.
-- The agent can only invest inside the mandate you signed, only into the vaults you picked, and the vault shares are minted to your wallet. Withdraw or revoke at any time.
+- The agent can only invest inside the mandate you signed, only into the vaults you picked, above the reserve you keep, and the vault shares are minted to your wallet. Withdraw or revoke at any time.
 - A payment can only be claimed by its recipient before the deadline, or recovered by you after it.
 
 Contracts reviewed by Arc Studio's auditor and Slither; not externally audited. Use small amounts.
