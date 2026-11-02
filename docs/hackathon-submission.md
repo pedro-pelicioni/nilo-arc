@@ -16,6 +16,45 @@ Fill in the `TODO` lines after the mainnet deploy.
 | Video walkthrough | YouTube link pending upload (title and description below) |
 | Builder profile | TODO (GitHub / X / Farcaster) |
 
+## DoraHacks fields
+
+**Title:** Nilo: the AI bot that invests your USDC while you sleep
+
+**One-liner:** Chat with Nilo, an AI bot on Arc: it learns your investor profile, you sign one mandate, and it
+invests your idle USDC into Morpho vaults while you sleep. Live on Arc mainnet, built with Arc Studio.
+
+**Description:**
+
+```text
+Nilo is an AI bot for your USDC on Arc. You talk to it like you'd text a friend ("send 5 USDC to maria, she has 10 minutes", "invest at most 30 a week, I'm conservative") and it does the onchain work for you.
+
+What it does
+- Learns who you are: 5 questions set your investor profile, and Nilo suggests a personality (Guardian, Balanced or Explorer).
+- Invests while you sleep: you sign one mandate (a weekly cap, a reserve that never leaves your wallet, the Morpho vaults you allow). At night Nilo's agent invests your idle USDC inside those limits, with the vault shares minted straight to your wallet.
+- Briefs you in the morning: what it invested, what your vaults are worth now, and how BTC and ETH moved.
+- Sends payments that can't get lost: USDC waits in escrow until a deadline; an empty wallet claims by signing a message while Nilo's relayer pays the gas; anything unclaimed goes back to the sender.
+
+Why you can trust it
+- The AI never builds a transaction. Code builds it and decodes it back from its own calldata before you sign; anything that differs from your request blocks signing.
+- NiloAgent only lets Nilo's operator invest, only into your vaults, within your weekly cap and above your reserve. Withdraw or revoke at any time; Nilo never holds your keys.
+
+Built with Arc Studio
+Arc Studio wrote NiloAgent and NiloPayments and their Foundry suite (163 tests plus a 19-test fork suite against the deployed contracts), ran its auditor and Slither (it added a 1% slippage guard), deployed to Arc Testnet, reviewed the app's onchain layer (11 issues, all fixed) and fixed its own EIP-7702 bug in claimFor. Mainnet was deployed with its script.
+
+Live on Arc mainnet (chain 5042)
+- NiloAgent 0x6debfa160cc1fd5ef06251690375d3887137e66c
+- NiloPayments 0xe98557734f797583c0b5e288e2cadfc09e826ab6
+- A real Balanced mandate: the agent invested 1.197068 USDC into Steakhouse Prime and 0.798045 USDC into Gauntlet (60/40), shares minted to the user's wallet.
+- A gasless claim by an empty wallet, gas paid by Nilo's relayer.
+Evidence and read-only verify commands: docs/JUDGING.md in the repo.
+
+Links
+App (Arc mainnet): https://nilo-arc.onrender.com
+App (testnet, free faucet USDC): https://nilo-arc-testnet.onrender.com
+Repo: https://github.com/pedro-pelicioni/nilo-arc
+Arc Studio project: https://studio.arc.io/app/7a700c29-561b-4cb6-98f2-826fbaa03a23
+```
+
 ## Short description
 
 Nilo is a chat wallet and investing agent for USDC on Arc. You tell it what you want in plain words; it builds
@@ -76,7 +115,7 @@ the app calls it). Every step below succeeded on chain:
 | A second run skips: this week's limit is used | (no transaction) |
 | alice redeems her shares straight to her wallet | [redeem](https://explorer.testnet.arc.io/tx/0x3e491721a6a5607e53784f004fdee5cdd6b521bc0f0bfecc702b9e1858f8be1a) |
 
-## Video walkthrough (90 s, v2: the investing tamagotchi)
+## Video walkthrough (90 s, v2: the AI bot that invests while you sleep)
 
 Bedtime (Nilo awake) → the real investor quiz → Balanced suggested → the decoded mandate, signed → 00:16 UTC,
 Nilo throws your idle USDC into Steakhouse Prime and Gauntlet, shares back to your wallet → the mainnet
@@ -93,12 +132,12 @@ transaction → Good morning briefing → withdraw or revoke → payments (fast)
 
 ## YouTube
 
-**Title:** Nilo: an investing tamagotchi for your USDC on Arc (Built with Arc Studio)
+**Title:** Nilo: the AI bot that invests your USDC while you sleep (Built with Arc Studio, live on Arc)
 
 **Description:**
 
 ```text
-Nilo is an investing tamagotchi for your USDC on Arc, Circle's stablecoin-native L1. It learns your investor profile, you sign one mandate, and while you sleep its agent invests your idle USDC into Morpho vaults, with the shares minted to your own wallet. In the morning it tells you what it did. Built with Arc Studio for Arc Microgrants; everything in this video is real, on Arc mainnet.
+Nilo is an AI bot for your USDC on Arc, Circle's stablecoin-native L1. You chat with it, it learns your investor profile, you sign one mandate, and while you sleep it invests your idle USDC into Morpho vaults, with the shares minted to your own wallet. In the morning it tells you what it did. Built with Arc Studio for Arc Microgrants; everything in this video is real, on Arc mainnet.
 
 0:00 You sleep, Nilo invests: it learns your investor profile (5 questions → Balanced)
 0:18 One signature, decoded from the transaction itself before you sign
