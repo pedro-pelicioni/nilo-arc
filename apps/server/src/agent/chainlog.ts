@@ -7,8 +7,8 @@
 // it. The next pass resumes. A kill mid-history no longer starts the walk over.
 import type { Address } from "viem";
 import { agentAbi, fromUnits, personalityByCode, unitsToUsdc, vaultInfo } from "@nilo/core";
-import { getRpc, network, requireContract, txLink } from "../chain";
-import { logError } from "../errors";
+import { getRpc, network, requireContract, rpcCooldownRemainingMs, txLink } from "../chain";
+import { isShrinkableHistoryError, logError } from "../errors";
 import { limits } from "../limits";
 import { addUser, record, setSyncedBlock, syncedBlock } from "./store";
 
@@ -37,6 +37,14 @@ const yieldNow = () => new Promise<void>((resolve) => setImmediate(resolve));
 
 type Pass = "done" | "continue" | "retry";
 
+/** Wait out a 429 that would otherwise expire in the same beat as the history retry. */
+export function historyRetryDelayMs(fallbackMs: number, remainingMs: number, marginMs = 250): number {
+  if (remainingMs <= 0) return fallbackMs;
+  return Math.max(fallbackMs, remainingMs + marginMs);
+}
+
+type PassOutcome = { pass: Pass; from: bigint | null; calls: number; error?: unknown };
+
 async function apply(ev: {
   blockNumber: bigint | null;
   transactionHash: string | null;
@@ -64,49 +72,59 @@ async function apply(ev: {
 }
 
 /** One bounded slice of history. Checkpoints the last block fully read. */
-async function syncPass(): Promise<Pass> {
-  const agent = requireContract("agent");
-  const head = await getRpc().getBlockNumber();
-  const from = (syncedBlock() ?? network.agentFromBlock - 1n) + 1n;
-  if (from > head) return "done";
-  const budgetEnd = from + limits.syncBlockBudget - 1n;
-  const passEnd = budgetEnd < head ? budgetEnd : head;
-  let step = STEP;
+async function syncPass(): Promise<PassOutcome> {
+  let from: bigint | null = null;
   let calls = 0;
-  let cursor = from;
-  let advancedTo = from - 1n;
-  let failed: unknown = null;
+  try {
+    const agent = requireContract("agent");
+    const head = await getRpc().getBlockNumber();
+    from = (syncedBlock() ?? network.agentFromBlock - 1n) + 1n;
+    if (from > head) return { pass: "done", from, calls };
+    const budgetEnd = from + limits.syncBlockBudget - 1n;
+    const passEnd = budgetEnd < head ? budgetEnd : head;
+    let step = STEP;
+    let cursor = from;
+    let advancedTo = from - 1n;
+    let failed: unknown = null;
 
-  while (cursor <= passEnd) {
-    if (calls >= limits.syncMaxCalls) break;
-    const end = cursor + step - 1n < passEnd ? cursor + step - 1n : passEnd;
-    try {
-      calls++;
-      const logs = await getRpc().getContractEvents({ address: agent, abi: agentAbi, fromBlock: cursor, toBlock: end });
-      for (const ev of logs) {
-        await apply(ev);
+    while (cursor <= passEnd) {
+      if (calls >= limits.syncMaxCalls) break;
+      const end = cursor + step - 1n < passEnd ? cursor + step - 1n : passEnd;
+      try {
+        calls++;
+        const logs = await getRpc().getContractEvents({ address: agent, abi: agentAbi, fromBlock: cursor, toBlock: end });
+        for (const ev of logs) {
+          await apply(ev);
+          await yieldNow();
+        }
+        advancedTo = end;
+        cursor = end + 1n;
+        step = STEP;
         await yieldNow();
+      } catch (e) {
+        failed = e;
+        // A refused block range or an oversized body can succeed on a smaller slice.
+        // A transport failure must not be retried three more times in the same pass.
+        if (!isShrinkableHistoryError(e) || step <= MIN_STEP || calls >= limits.syncMaxCalls) break;
+        step /= 2n;
       }
-      advancedTo = end;
-      cursor = end + 1n;
-      step = STEP;
-      await yieldNow();
-    } catch (e) {
-      failed = e;
-      if (step <= MIN_STEP || calls >= limits.syncMaxCalls) break;
-      step /= 2n;
     }
-  }
 
-  if (advancedTo >= from) await setSyncedBlock(advancedTo);
-  if (failed) {
-    logError("agent: could not read NiloAgent events", failed);
-    return "retry";
+    if (advancedTo >= from) await setSyncedBlock(advancedTo);
+    if (failed) return { pass: "retry", from, calls, error: failed };
+    return { pass: advancedTo < head ? "continue" : "done", from, calls };
+  } catch (e) {
+    return { pass: "retry", from, calls, error: e };
   }
-  return advancedTo < head ? "continue" : "done";
+}
+
+let lastScheduledDelayMs = 0;
+export function scheduledDelayForTests() {
+  return lastScheduledDelayMs;
 }
 
 function schedule(ms: number) {
+  lastScheduledDelayMs = ms;
   if (continueTimer) clearTimeout(continueTimer);
   continueTimer = setTimeout(() => {
     continueTimer = null;
@@ -125,12 +143,12 @@ export async function syncFromChain(force = false): Promise<void> {
     release = resolve;
   });
   try {
-    const next = await syncPass().catch((e): Pass => {
-      logError("agent: could not read NiloAgent events", e);
-      return "retry";
-    });
-    if (next === "continue") schedule(limits.syncContinueMs);
-    else if (next === "retry") schedule(limits.syncRetryMs);
+    const outcome = await syncPass();
+    if (outcome.error !== undefined) {
+      logError(`agent: could not read NiloAgent events from=${outcome.from?.toString() ?? "unknown"} calls=${outcome.calls}`, outcome.error);
+    }
+    if (outcome.pass === "continue") schedule(limits.syncContinueMs);
+    else if (outcome.pass === "retry") schedule(historyRetryDelayMs(limits.syncRetryMs, rpcCooldownRemainingMs()));
   } finally {
     running = null;
     release();
@@ -142,5 +160,6 @@ export function resetSyncForTests() {
   continueTimer = null;
   running = null;
   last = 0;
+  lastScheduledDelayMs = 0;
   blockTimes.clear();
 }
