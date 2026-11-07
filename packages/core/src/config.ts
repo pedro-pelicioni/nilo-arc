@@ -28,6 +28,11 @@ export interface ArcNetwork {
   operator: Address;
   /** The block NiloAgent was deployed in: where the server starts reading its events. */
   agentFromBlock: bigint;
+  /**
+   * Keyless public RPCs the server falls back to when the primary one refuses (rate limit, range,
+   * pruned history). From docs.arc.io/arc/references/rpc-endpoints.
+   */
+  rpcFallbacks: string[];
   vaults: VaultInfo[];
   /** Where to get test USDC, on testnet. */
   faucetUrl?: string;
@@ -74,6 +79,7 @@ export const NETWORKS: Record<NetworkId, ArcNetwork> = {
     agent: "0x16f0819135205b7d710d99ef92c69173e2d464c6",
     operator: OPERATOR,
     agentFromBlock: 70_185_129n,
+    rpcFallbacks: ["https://rpc.quicknode.testnet.arc.io", "https://rpc.blockdaemon.testnet.arc.io", "https://rpc.drpc.testnet.arc.io"],
     vaults: [
       { address: "0xaabbef1d3971c710276ed41ec791bbe14cdb8e88", name: "EarnKit USDC Vault", slot: "prime" },
       { address: "0x8f2d33b5d4b9b5f02df635ae308f7b4c9da8d2dc", name: "Morpho USDC Vault", slot: "yield" },
@@ -91,6 +97,7 @@ export const NETWORKS: Record<NetworkId, ArcNetwork> = {
     agent: "0x6debfa160cc1fd5ef06251690375d3887137e66c",
     operator: OPERATOR,
     agentFromBlock: 29_069_347n,
+    rpcFallbacks: ["https://rpc.quicknode.mainnet.arc.io", "https://rpc.blockdaemon.mainnet.arc.io", "https://rpc.drpc.mainnet.arc.io"],
     vaults: [
       { address: "0xbeef0016cb2fd5c352ea7ca08a9f54739dfa7298", name: "Steakhouse Prime USDC", slot: "prime" },
       { address: "0x10af7238c6355aa8ddb5ed60e2e9b55a72827b51", name: "Gauntlet USDC Balanced", slot: "yield" },

@@ -119,7 +119,7 @@ export function isRateLimit(e: unknown): boolean {
   return walkCode(e);
 }
 
-const SHRINKABLE = /response body exceeded the size limit|block range is too large|block range too large|exceeds? (?:the )?max(?:imum)? (?:block )?range|too many (?:logs|results)|response size exceeded|query returned more than|log response size|returned more than \d+ results/i;
+const SHRINKABLE = /response body exceeded the size limit|block range is too large|block range too large|requested range too large|ranges over \d+ blocks|exceeds? (?:the )?max(?:imum)? (?:block )?range|too many (?:logs|results)|response size exceeded|query returned more than|log response size|returned more than \d+ results/i;
 
 /** True only for an oversized eth_getLogs body or a block-range refusal. Transport failures are not included. */
 export function isShrinkableHistoryError(e: unknown, depth = 0): boolean {

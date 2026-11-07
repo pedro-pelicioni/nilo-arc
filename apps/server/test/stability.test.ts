@@ -16,8 +16,8 @@ delete process.env.ARC_RPC_URL;
 
 const { createApp } = await import("../src/app.ts");
 const { network, setRpcCooldownRemainingForTests, setRpcForTests } = await import("../src/chain.ts");
-const { historyRetryDelayMs, scheduledDelayForTests, syncFromChain, resetSyncForTests } = await import("../src/agent/chainlog.ts");
-const { resetStoreForTests, syncedBlock } = await import("../src/agent/store.ts");
+const { STEP, historyRetryDelayMs, scheduledDelayForTests, setHistorySeedForTests, syncFromChain, resetSyncForTests } = await import("../src/agent/chainlog.ts");
+const { activityFor, resetStoreForTests, syncedBlock, users } = await import("../src/agent/store.ts");
 const { investFailure } = await import("../src/agent/run.ts");
 const { RENDER_PROBE_ADDRESS, resetRouteLimitsForTests } = await import("../src/agent/routes.ts");
 const { limits, resetLimits } = await import("../src/limits.ts");
@@ -404,7 +404,8 @@ describe("stability", { concurrency: false }, () => {
 
   it("checkpoints a bounded history pass and resumes after it", async () => {
     const from = network.agentFromBlock;
-    const head = from + 45_000n;
+    // More than one pass's budget, so the second pass has to resume where the first stopped.
+    const head = from + limits.syncBlockBudget * 2n + 5_000n;
     const ranges: Array<[bigint, bigint]> = [];
     limits.syncContinueMs = 60_000;
     limits.syncRetryMs = 60_000;
@@ -439,6 +440,39 @@ describe("stability", { concurrency: false }, () => {
     await syncFromChain(true);
     assert.equal(ranges[mid][0], firstEnd + 1n);
     assert.ok((syncedBlock() ?? 0n) > firstEnd);
+  });
+
+  it("starts a fresh disk from the shipped history instead of the deploy block", async () => {
+    const seedBlock = network.agentFromBlock + 900_000n;
+    const ranges: Array<[bigint, bigint]> = [];
+    limits.syncContinueMs = 60_000;
+    setHistorySeedForTests({
+      block: seedBlock.toString(),
+      users: [USER],
+      activity: [{ id: "0xabc:0", at: "2026-11-02T00:16:24.000Z", user: USER, kind: "mandate", hash: "0xabc", note: "Mandate active: up to 100 USDC per week as Balanced." }],
+    });
+    setRpcForTests(
+      rpc({
+        async getBlockNumber() {
+          return seedBlock + 7_000n;
+        },
+        async getContractEvents(args: { fromBlock: bigint; toBlock: bigint }) {
+          ranges.push([args.fromBlock, args.toBlock]);
+          return [];
+        },
+        async getBlock() {
+          return { timestamp: 0n };
+        },
+        async readContract() {
+          return 0n;
+        },
+      }),
+    );
+    await syncFromChain(true);
+    assert.equal(ranges[0][0], seedBlock + 1n);
+    assert.equal(syncedBlock(), seedBlock + 7_000n);
+    assert.ok(users().includes(USER));
+    assert.equal(activityFor(USER)[0].kind, "mandate");
   });
 
   it("does not retry a dead history RPC in a tight loop", async () => {
@@ -494,7 +528,7 @@ describe("stability", { concurrency: false }, () => {
       }),
     );
     await syncFromChain(true);
-    assert.equal(syncedBlock(), from + 10_000n - 1n);
+    assert.equal(syncedBlock(), from + STEP - 1n);
     await new Promise((r) => setTimeout(r, 30));
     assert.equal(calls, 2);
   });

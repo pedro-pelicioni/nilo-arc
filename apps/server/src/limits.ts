@@ -9,9 +9,9 @@ export const limitDefaults = {
   /** Agent status reads in flight. Further callers get 503 immediately. */
   maxStatusInflight: 4,
   /** NiloAgent blocks read per history pass. The chain is resumed on the next pass. */
-  syncBlockBudget: 20_000n,
+  syncBlockBudget: 50_000n,
   /** RPC calls per history pass, including a smaller retry after a refused range. */
-  syncMaxCalls: 4,
+  syncMaxCalls: 12,
   rpcTimeoutMs: 4_000,
   /**
    * viem retries HTTP 429 and JSON-RPC -32005 by default. The live failure was

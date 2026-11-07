@@ -3,17 +3,19 @@
 // a mandate is found again, and each mandate, investment and revoke comes back with its hash.
 //
 // Arc mainnet's agent was deployed hundreds of thousands of blocks ago, and this file is wiped
-// whenever the free-tier disk is. One pass therefore reads only a bounded span and checkpoints
-// it. The next pass resumes. A kill mid-history no longer starts the walk over.
+// whenever the free-tier disk is. The history up to a recent block ships with the code
+// (history-seed.ts, written by scripts/agent-history-seed.ts), so a fresh disk starts there; one
+// pass then reads only a bounded span and checkpoints it, and the next pass resumes.
 import type { Address } from "viem";
 import { agentAbi, fromUnits, personalityByCode, unitsToUsdc, vaultInfo } from "@nilo/core";
 import { getRpc, network, requireContract, rpcCooldownRemainingMs, txLink } from "../chain";
 import { isShrinkableHistoryError, logError } from "../errors";
 import { limits } from "../limits";
-import { addUser, record, setSyncedBlock, syncedBlock } from "./store";
+import { HISTORY_SEED, type HistorySeed } from "./history-seed";
+import { type Activity, addUser, record, setSyncedBlock, syncedBlock } from "./store";
 
-/** Blocks per getLogs request; halved when the RPC refuses a range. */
-const STEP = 10_000n;
+/** Blocks per getLogs request (Circle's and QuickNode's limit); halved when an RPC refuses a range. */
+export const STEP = 5_000n;
 const MIN_STEP = 500n;
 /** At most one sync every this many ms; status requests call it freely. */
 const MIN_GAP_MS = 20_000;
@@ -22,6 +24,15 @@ let last = 0;
 let running: Promise<void> | null = null;
 let continueTimer: ReturnType<typeof setTimeout> | null = null;
 const blockTimes = new Map<bigint, string>();
+let seed: HistorySeed | null = HISTORY_SEED[network.id] ?? null;
+
+/** A fresh disk starts from the shipped history instead of the deploy block. */
+async function applySeed() {
+  if (!seed || syncedBlock() !== null) return;
+  for (const user of seed.users) addUser(user);
+  for (const a of seed.activity) record(a);
+  await setSyncedBlock(BigInt(seed.block));
+}
 
 async function timeOf(block: bigint): Promise<string> {
   const known = blockTimes.get(block);
@@ -45,30 +56,44 @@ export function historyRetryDelayMs(fallbackMs: number, remainingMs: number, mar
 
 type PassOutcome = { pass: Pass; from: bigint | null; calls: number; error?: unknown };
 
-async function apply(ev: {
+type AgentEvent = {
   blockNumber: bigint | null;
   transactionHash: string | null;
   logIndex: number | null;
   eventName: string;
   args: unknown;
-}) {
-  if (ev.blockNumber === null || ev.transactionHash === null) return;
-  const id = `${ev.transactionHash}:${ev.logIndex}`;
-  const base = { id, at: await timeOf(ev.blockNumber), hash: ev.transactionHash, link: txLink(ev.transactionHash) };
+};
+
+/** The log entry an event becomes, given its block's time. Also what scripts/agent-history-seed.ts ships. */
+export function activityFrom(ev: AgentEvent, at: string): { entry: Activity; mandateUser?: Address } | null {
+  if (ev.blockNumber === null || ev.transactionHash === null) return null;
+  const base = { id: `${ev.transactionHash}:${ev.logIndex}`, at, hash: ev.transactionHash, link: txLink(ev.transactionHash) };
   if (ev.eventName === "MandateSet") {
     const { user, limit, profile } = ev.args as { user: Address; limit: bigint; profile: number };
-    addUser(user);
     const name = personalityByCode(Number(profile))?.name ?? `profile ${profile}`;
-    record({ ...base, user, kind: "mandate", note: `Mandate active: up to ${unitsToUsdc(limit)} USDC per week as ${name}.` });
-  } else if (ev.eventName === "Invested") {
+    const note = `Mandate active: up to ${unitsToUsdc(limit)} USDC per week as ${name}.`;
+    return { entry: { ...base, user: user.toLowerCase(), kind: "mandate", note }, mandateUser: user };
+  }
+  if (ev.eventName === "Invested") {
     const { user, vault, amount } = ev.args as { user: Address; vault: Address; amount: bigint };
     const usdc = fromUnits(amount);
     const vaultName = vaultInfo(network, vault)?.name ?? vault;
-    record({ ...base, user, kind: "invest", vault, amount: usdc, note: `Invested ${usdc} USDC into ${vaultName}. The vault shares are in your wallet.` });
-  } else if (ev.eventName === "Revoked") {
-    const { user } = ev.args as { user: Address };
-    record({ ...base, user, kind: "revoke", note: "Mandate revoked. The agent can no longer invest for you." });
+    const note = `Invested ${usdc} USDC into ${vaultName}. The vault shares are in your wallet.`;
+    return { entry: { ...base, user: user.toLowerCase(), kind: "invest", vault, amount: usdc, note } };
   }
+  if (ev.eventName === "Revoked") {
+    const { user } = ev.args as { user: Address };
+    return { entry: { ...base, user: user.toLowerCase(), kind: "revoke", note: "Mandate revoked. The agent can no longer invest for you." } };
+  }
+  return null;
+}
+
+async function apply(ev: AgentEvent) {
+  if (ev.blockNumber === null) return;
+  const out = activityFrom(ev, await timeOf(ev.blockNumber));
+  if (!out) return;
+  if (out.mandateUser) addUser(out.mandateUser);
+  record(out.entry);
 }
 
 /** One bounded slice of history. Checkpoints the last block fully read. */
@@ -77,6 +102,7 @@ async function syncPass(): Promise<PassOutcome> {
   let calls = 0;
   try {
     const agent = requireContract("agent");
+    await applySeed();
     const head = await getRpc().getBlockNumber();
     from = (syncedBlock() ?? network.agentFromBlock - 1n) + 1n;
     if (from > head) return { pass: "done", from, calls };
@@ -155,7 +181,13 @@ export async function syncFromChain(force = false): Promise<void> {
   }
 }
 
+/** Tests read from the deploy block unless they install a seed. */
+export function setHistorySeedForTests(next: HistorySeed | null) {
+  seed = next;
+}
+
 export function resetSyncForTests() {
+  seed = null;
   if (continueTimer) clearTimeout(continueTimer);
   continueTimer = null;
   running = null;

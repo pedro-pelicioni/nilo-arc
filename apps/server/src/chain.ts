@@ -1,6 +1,6 @@
 // The server's view of Arc: which network (ARC_NETWORK, testnet by default), a client to read it,
 // and Nilo's operator key, which invests through NiloAgent and relays gasless claims.
-import { type Address, type Hex, createPublicClient, createWalletClient, http, isHex, zeroAddress } from "viem";
+import { type Address, type Hex, createPublicClient, createWalletClient, fallback, http, isHex, zeroAddress } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { type NetworkId, NETWORKS, arcChain, explorerTx, makeConfig, sameAddress } from "@nilo/core";
 import { createGatedFetch } from "./gate";
@@ -13,9 +13,14 @@ export const config = makeConfig(id);
 export const network = config.network;
 export const chain = arcChain(network);
 
-const rpcUrl = process.env.ARC_RPC_URL?.trim() || network.rpcUrl;
-const rpcFetch = createGatedFetch(limits.maxRpcInflight);
-let readCooldown: (now?: number) => number = (now) => rpcFetch.cooldownRemainingMs(now);
+// The primary RPC (ARC_RPC_URL, else Circle's) first, then the keyless public providers. Each has its own
+// gate, so a 429 from one (Render's shared egress IPs hit Circle's quota) sends the call to the next instead
+// of pausing every read.
+const rpcUrls = [...new Set([process.env.ARC_RPC_URL?.trim() || network.rpcUrl, ...network.rpcFallbacks])];
+const rpcFetches = rpcUrls.map(() => createGatedFetch(limits.maxRpcInflight));
+/** Until every provider is cooling down, some read can still go out. */
+const allCooling = (now?: number) => Math.min(...rpcFetches.map((f) => f.cooldownRemainingMs(now)));
+let readCooldown: (now?: number) => number = allCooling;
 
 /** Milliseconds until a 429 cooldown lets another RPC through. Zero when none is active. */
 export function rpcCooldownRemainingMs(now = Date.now()) {
@@ -24,19 +29,24 @@ export function rpcCooldownRemainingMs(now = Date.now()) {
 
 /** Tests substitute the clock. Production uses the shared fetch gate. */
 export function setRpcCooldownRemainingForTests(read: ((now?: number) => number) | null) {
-  readCooldown = read ?? ((now) => rpcFetch.cooldownRemainingMs(now));
+  readCooldown = read ?? allCooling;
 }
 
-const transport = http(rpcUrl, {
-  timeout: limits.rpcTimeoutMs,
-  // 0 is intentional. viem's shouldRetry retries HTTP 429 and JSON-RPC -32005,
-  // which is what the public Arc RPC returned for mandateOf. A retry is another
-  // call into the same quota.
-  retryCount: limits.rpcRetryCount,
-  retryDelay: 200,
-  fetchFn: rpcFetch,
-  maxResponseBodySize: limits.maxResponseBodySize,
-});
+const transport = fallback(
+  rpcUrls.map((url, i) =>
+    http(url, {
+      timeout: limits.rpcTimeoutMs,
+      // 0 is intentional. viem's shouldRetry retries HTTP 429 and JSON-RPC -32005,
+      // which is what the public Arc RPC returned for mandateOf. A retry is another
+      // call into the same quota; the next provider is not.
+      retryCount: limits.rpcRetryCount,
+      retryDelay: 200,
+      fetchFn: rpcFetches[i],
+      maxResponseBodySize: limits.maxResponseBodySize,
+    }),
+  ),
+  { retryCount: 0 },
+);
 
 export const client = createPublicClient({ chain, transport });
 export type Rpc = typeof client;
