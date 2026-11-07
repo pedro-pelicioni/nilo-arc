@@ -19,15 +19,16 @@ const { network, setRpcForTests } = await import("../src/chain.ts");
 const { syncFromChain, resetSyncForTests } = await import("../src/agent/chainlog.ts");
 const { resetStoreForTests, syncedBlock } = await import("../src/agent/store.ts");
 const { investFailure } = await import("../src/agent/run.ts");
-const { resetRouteLimitsForTests } = await import("../src/agent/routes.ts");
+const { RENDER_PROBE_ADDRESS, resetRouteLimitsForTests } = await import("../src/agent/routes.ts");
 const { limits, resetLimits } = await import("../src/limits.ts");
 const { errorSummary, resetLogsForTests } = await import("../src/errors.ts");
-const { createGatedFetch } = await import("../src/gate.ts");
+const { cooldownFromRetryAfter, createGatedFetch } = await import("../src/gate.ts");
 const { shutdownServer } = await import("../src/shutdown.ts");
 const { market, resetMarketForTests } = await import("../src/market.ts");
 
-const ADDR = "0x0000000000000000000000000000000000000001";
-const STATUS = `/api/agent/status/${ADDR}`;
+const USER = "0x0000000000000000000000000000000000000002";
+const STATUS = `/api/agent/status/${USER}`;
+const PROBE = `/api/agent/status/${RENDER_PROBE_ADDRESS}`;
 
 function zeroMandate() {
   return { limit: 0n, period: 0n, expiresAt: 0n, reserve: 0n, profile: 0, vaults: [] as readonly `0x${string}`[] };
@@ -221,7 +222,7 @@ describe("stability", { concurrency: false }, () => {
       shortMessage: "HTTP request failed.",
       functionName: "mandateOf",
       contractAddress: "0x6debfa160cc1fd5ef06251690375d3887137e66c",
-      args: [ADDR],
+      args: [RENDER_PROBE_ADDRESS],
       sender: undefined,
       formattedArgs: undefined,
     });
@@ -255,6 +256,137 @@ describe("stability", { concurrency: false }, () => {
     const again = await app.request(STATUS);
     assert.equal(again.status, 502);
     assert.equal(logs.length, 1);
+  });
+
+  it("answers the configured Render status probe without calling Arc", async () => {
+    let reads = 0;
+    setRpcForTests(
+      rpc({
+        async readContract() {
+          reads++;
+          throw new Error("probe must not read");
+        },
+        async getBlockNumber() {
+          reads++;
+          throw new Error("probe must not sync");
+        },
+        async getContractEvents() {
+          reads++;
+          return [];
+        },
+        async getBlock() {
+          reads++;
+          return { timestamp: 0n };
+        },
+      }),
+    );
+    const app = createApp();
+    const started = performance.now();
+    const res = await app.request(PROBE);
+    assert.equal(res.status, 200);
+    assert.deepEqual(await res.json(), { ok: true });
+    assert.ok(performance.now() - started < 100);
+    assert.equal(reads, 0);
+    assert.equal(logs.length, 0);
+  });
+
+  it("turns the observed mandateOf 429 into one line and does not treat it as a contract error", async () => {
+    const dump = "x".repeat(20_000);
+    const failure = Object.assign(new Error(dump), {
+      shortMessage: "Request exceeds defined limit.",
+      details: "rate limit exceeded",
+      metaMessages: [
+        "Status: 429",
+        "URL: https://rpc.mainnet.arc.io/",
+        "Request body: {\"method\":\"eth_call\",\"params\":[{\"data\":\"0x3304fb83\",\"to\":\"0x6debfa160cc1fd5ef06251690375d3887137e66c\"},\"latest\"]}",
+        "Contract Call:",
+        "  function:  mandateOf(address user)",
+      ],
+      cause: {
+        code: -32005,
+        shortMessage: "Request exceeds defined limit.",
+        details: "rate limit exceeded",
+        metaMessages: ["Status: 429"],
+      },
+    });
+    setRpcForTests(
+      rpc({
+        async readContract(args: { functionName: string }) {
+          if (args.functionName === "mandateOf") throw failure;
+          if (args.functionName === "usageOf") return [0n, 0n];
+          return 0n;
+        },
+        async getBlockNumber() {
+          return network.agentFromBlock;
+        },
+        async getContractEvents() {
+          return [];
+        },
+        async getBlock() {
+          return { timestamp: 0n };
+        },
+      }),
+    );
+    const app = createApp();
+    const res = await app.request(STATUS);
+    assert.equal(res.status, 429);
+    const body = await res.text();
+    assert.match(body, /rate limited/);
+    assert.ok(!body.includes("OverLimit"));
+    assert.ok(!body.includes("formattedArgs"));
+    assert.ok(!body.includes(dump.slice(0, 80)));
+    assert.ok(!body.includes("0x3304fb83"));
+    assert.equal(logs.length, 1);
+    assert.equal(logs[0], "agent route failed: Request exceeds defined limit.");
+  });
+
+  it("does not call Arc again after a 429, and does not grow the waiter queue", async () => {
+    assert.equal(limits.rpcRetryCount, 0);
+    let calls = 0;
+    const gated = createGatedFetch(
+      1,
+      async () => {
+        calls++;
+        return new Response("no", { status: 429, headers: { "retry-after": "120" } });
+      },
+      { maxWaiters: 1, fallbackCooldownMs: 15_000, maxCooldownMs: 30_000 },
+    );
+    const first = await gated("http://rpc.test/a");
+    assert.equal(first.status, 429);
+    await assert.rejects(gated("http://rpc.test/b"), (e: Error) => e.name === "RateLimitError");
+    assert.equal(calls, 1);
+
+    let release!: () => void;
+    const hold = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const busy = createGatedFetch(
+      1,
+      async () => {
+        await hold;
+        return new Response("ok");
+      },
+      { maxWaiters: 1 },
+    );
+    const held = busy("http://rpc.test/held");
+    await new Promise((r) => setTimeout(r, 10));
+    const queued = busy("http://rpc.test/queued");
+    const started = performance.now();
+    await assert.rejects(busy("http://rpc.test/overflow"), (e: Error) => e.name === "RpcBusyError");
+    assert.ok(performance.now() - started < 50);
+    release();
+    assert.equal((await held).status, 200);
+    assert.equal((await queued).status, 200);
+  });
+
+  it("uses Retry-After when it is usable and a short fallback when it is not", () => {
+    assert.equal(cooldownFromRetryAfter(null, 1_000, 15_000, 30_000), 15_000);
+    assert.equal(cooldownFromRetryAfter("0", 1_000, 15_000, 30_000), 15_000);
+    assert.equal(cooldownFromRetryAfter("nope", 1_000, 15_000, 30_000), 15_000);
+    assert.equal(cooldownFromRetryAfter("2", 1_000, 15_000, 30_000), 2_000);
+    assert.equal(cooldownFromRetryAfter("120", 1_000, 15_000, 30_000), 30_000);
+    const later = new Date(1_000 + 5_000).toUTCString();
+    assert.equal(cooldownFromRetryAfter(later, 1_000, 15_000, 30_000), 5_000);
   });
 
   it("maps an invest revert from the error name, not the raw dump", () => {

@@ -13,8 +13,18 @@ export const limitDefaults = {
   /** RPC calls per history pass, including a smaller retry after a refused range. */
   syncMaxCalls: 4,
   rpcTimeoutMs: 4_000,
-  rpcRetryCount: 1,
+  /**
+   * viem retries HTTP 429 and JSON-RPC -32005 by default. The live failure was
+   * that retry. Zero means one attempt, then our cooldown, not another burst.
+   */
+  rpcRetryCount: 0,
   maxRpcInflight: 4,
+  /** Calls waiting for a free RPC slot. Further calls fail instead of queueing. */
+  maxRpcWaiters: 8,
+  /** Used when a 429 has no usable Retry-After. */
+  rpcCooldownMs: 15_000,
+  /** Upper bound so a long Retry-After cannot pause the process's RPC for minutes. */
+  rpcCooldownMaxMs: 30_000,
   /** A larger eth_getLogs body is refused so JSON.parse cannot stall the process. */
   maxResponseBodySize: 1_048_576,
   /** Pause between history passes that made progress, so probes can run. */

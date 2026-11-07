@@ -6,7 +6,7 @@ import { Hono } from "hono";
 import { z } from "zod";
 import { agentAbi, erc4626Abi, personalityByCode, unitsToUsdc, vaultInfo } from "@nilo/core";
 import { ChainError, getRpc, network, requireContract } from "../chain";
-import { isTimeout, logError } from "../errors";
+import { isRateLimit, isTimeout, logError } from "../errors";
 import { limits } from "../limits";
 import { activate, agentAllowance, mandateOf, remainingFor, runFor, walletUsdc } from "./run";
 import { syncFromChain } from "./chainlog";
@@ -17,6 +17,13 @@ const Account = z
   .refine((a) => isAddress(a, { strict: false }), "Invalid wallet address.")
   .transform((a) => a.toLowerCase() as Address);
 const AddressRequest = z.object({ address: Account });
+
+/**
+ * Render's HTTP health check for this service is this exact path, not /health.
+ * It must answer 2xx without calling Arc. A 502 or a slow mandateOf here is an
+ * unhealthy instance. Adding /health does not change that configuration.
+ */
+export const RENDER_PROBE_ADDRESS = "0x0000000000000000000000000000000000000001";
 
 const lastManualRun = new Map<string, number>();
 const MANUAL_RUN_GAP_MS = 15_000;
@@ -43,6 +50,10 @@ export const agent = new Hono();
 agent.onError((e, c) => {
   if (e instanceof ChainError) return c.json({ message: e.message }, e.status);
   if (isTimeout(e)) return c.json({ message: `${network.name} did not answer in time. Try again in a moment.` }, 503);
+  if (isRateLimit(e)) {
+    logError("agent route failed", e);
+    return c.json({ message: "Arc's public RPC is rate limited. Try again in a moment." }, 429);
+  }
   logError("agent route failed", e);
   return c.json({ message: `${network.name} did not answer. Try again in a moment.` }, 502);
 });
@@ -74,6 +85,10 @@ agent.get("/status/:address", async (c) => {
   const parsed = Account.safeParse(c.req.param("address"));
   if (!parsed.success) throw new ChainError("Invalid wallet address.");
   const address = parsed.data;
+  if (address === RENDER_PROBE_ADDRESS) {
+    c.header("cache-control", "no-store");
+    return c.json({ ok: true });
+  }
   if (statusInflight >= limits.maxStatusInflight) {
     return c.json({ message: "The agent is busy reading Arc. Try again in a moment." }, 503);
   }

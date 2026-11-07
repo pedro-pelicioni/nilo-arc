@@ -1,9 +1,35 @@
-// Caps how many outbound RPCs run at once. Each call uses a DNS lookup and a
-// socket; an uncapped burst fills Node's thread pool and then even a static
-// file read waits behind it.
+// Caps how many outbound RPCs run at once, and stops a 429 from being retried
+// into a larger burst. Waiters are capped so a stuck slot cannot grow a queue.
+
+import { limits } from "./limits";
 
 function aborted(signal: AbortSignal | undefined): unknown {
   return signal?.reason ?? Object.assign(new Error("The request was aborted."), { name: "AbortError" });
+}
+
+export function rateLimitError(): Error {
+  return Object.assign(new Error("Arc's public RPC is rate limited."), { name: "RateLimitError" });
+}
+
+export function busyError(): Error {
+  return Object.assign(new Error("Arc RPC is busy."), { name: "RpcBusyError" });
+}
+
+/** Milliseconds to stay quiet after a 429. Unusable Retry-After values use the fallback. */
+export function cooldownFromRetryAfter(header: string | null, now: number, fallbackMs: number, maxMs: number): number {
+  const fallback = Math.min(Math.max(fallbackMs, 0), maxMs);
+  if (!header) return fallback;
+  const trimmed = header.trim();
+  if (/^\d+$/.test(trimmed)) {
+    const seconds = Number(trimmed);
+    if (seconds <= 0) return fallback;
+    return Math.min(seconds * 1000, maxMs);
+  }
+  const when = Date.parse(trimmed);
+  if (Number.isNaN(when)) return fallback;
+  const delta = when - now;
+  if (delta <= 0) return fallback;
+  return Math.min(delta, maxMs);
 }
 
 interface Waiter {
@@ -13,9 +39,16 @@ interface Waiter {
   onAbort: () => void;
 }
 
-export function createGatedFetch(limit: number, inner: typeof fetch = fetch): typeof fetch {
+export function createGatedFetch(
+  limit: number,
+  inner: typeof fetch = fetch,
+  options?: { maxWaiters?: number; fallbackCooldownMs?: number; maxCooldownMs?: number; now?: () => number },
+): typeof fetch {
   if (limit < 1) throw new Error("RPC concurrency limit must be at least 1.");
+  const maxWaiters = options?.maxWaiters ?? limits.maxRpcWaiters;
+  const now = options?.now ?? Date.now;
   let active = 0;
+  let coolUntil = 0;
   const waiters: Waiter[] = [];
 
   function release() {
@@ -52,9 +85,21 @@ export function createGatedFetch(limit: number, inner: typeof fetch = fetch): ty
 
   return async (input, init) => {
     const signal = init?.signal ?? undefined;
+    if (now() < coolUntil) throw rateLimitError();
+    if (active >= limit && waiters.length >= maxWaiters) throw busyError();
     await acquire(signal);
     try {
-      return await inner(input, init);
+      const response = await inner(input, init);
+      if (response.status === 429) {
+        const pause = cooldownFromRetryAfter(
+          response.headers.get("retry-after"),
+          now(),
+          options?.fallbackCooldownMs ?? limits.rpcCooldownMs,
+          options?.maxCooldownMs ?? limits.rpcCooldownMaxMs,
+        );
+        coolUntil = Math.max(coolUntil, now() + pause);
+      }
+      return response;
     } finally {
       release();
     }

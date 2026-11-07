@@ -58,3 +58,20 @@ export function isTimeout(e: unknown): boolean {
   const name = typeof e === "object" && e ? (e as { name?: string }).name : undefined;
   return name === "TimeoutError" || name === "AbortError";
 }
+
+/** The public Arc RPC answered 429 / -32005 ("rate limit exceeded") for mandateOf. */
+export function isRateLimit(e: unknown): boolean {
+  const name = typeof e === "object" && e ? (e as { name?: string }).name : undefined;
+  if (name === "RateLimitError") return true;
+  const text = errorText(e);
+  if (/rate limit exceeded|request exceeds defined limit/i.test(text)) return true;
+  return walkCode(e);
+}
+
+function walkCode(e: unknown, depth = 0): boolean {
+  if (!e || typeof e !== "object" || depth > 5) return false;
+  const o = e as { code?: unknown; status?: unknown; cause?: unknown; metaMessages?: unknown };
+  if (o.code === 429 || o.code === -32005 || o.status === 429) return true;
+  if (Array.isArray(o.metaMessages) && o.metaMessages.some((line) => line === "Status: 429")) return true;
+  return walkCode(o.cause, depth + 1);
+}

@@ -16,9 +16,11 @@ export const chain = arcChain(network);
 const rpcUrl = process.env.ARC_RPC_URL?.trim() || network.rpcUrl;
 const transport = http(rpcUrl, {
   timeout: limits.rpcTimeoutMs,
+  // 0 is intentional. viem's shouldRetry retries HTTP 429 and JSON-RPC -32005,
+  // which is what the public Arc RPC returned for mandateOf. A retry is another
+  // call into the same quota.
   retryCount: limits.rpcRetryCount,
   retryDelay: 200,
-  // One shared gate for reads and the operator wallet, so a burst cannot open unbounded sockets.
   fetchFn: createGatedFetch(limits.maxRpcInflight),
   maxResponseBodySize: limits.maxResponseBodySize,
 });
