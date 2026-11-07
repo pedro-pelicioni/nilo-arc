@@ -1,17 +1,22 @@
-// Nilo's mascot for bots: a little arch (Arc) with a ring around it (Circle). Each image is a
-// grayscale SVG on a transparent background; the app tints it with the bot's color, so one file
-// serves every color. Add an entry only once public/mascots/<id>.svg exists.
+// Nilo's mascot for bots: a little arch (Arc) with a ring around it (Circle). Each image is grayscale on a
+// transparent background; the app tints it with the bot's color, so one file serves every color. The first
+// four are hand-drawn SVGs; the accessory variants were generated with Higgsfield from the Classic drawing and
+// keyed out of a chroma background. Add an entry only once its file exists in public/mascots/.
 
 export const MASCOTS = [
-  { id: "classic", label: "Classic" },
-  { id: "sleepy", label: "Sleepy" },
-  { id: "sprout", label: "Sprout" },
-  { id: "graduate", label: "Graduate" },
+  { id: "classic", label: "Classic", file: "classic.svg" },
+  { id: "sleepy", label: "Sleepy", file: "sleepy.svg" },
+  { id: "sprout", label: "Sprout", file: "sprout.svg" },
+  { id: "graduate", label: "Graduate", file: "graduate.svg" },
+  { id: "shades", label: "Shades", file: "shades.png" },
+  { id: "support", label: "Support", file: "support.png" },
+  { id: "crown", label: "Crown", file: "crown.png" },
+  { id: "cap", label: "Cap", file: "cap.png" },
 ] as const;
 
 export type MascotId = (typeof MASCOTS)[number]["id"];
 
-export const mascotSrc = (id: MascotId) => `/mascots/${id}.svg`;
+export const mascotSrc = (id: MascotId) => `/mascots/${MASCOTS.find((m) => m.id === id)?.file ?? "classic.svg"}`;
 
 export const BOT_COLORS = [
   { id: "white", hex: "#f2f2f2" },
