@@ -177,7 +177,7 @@ To run on mainnet, set `ARC_NETWORK=mainnet` and `VITE_ARC_NETWORK=mainnet`; the
 |---|---|
 | [`contracts`](contracts) | NiloAgent and NiloPayments, their Foundry tests and the deploy script, from Arc Studio. |
 | [`packages/core`](packages/core) | Pure TypeScript: Arc networks and addresses, ABIs, intent schema, validation, call builders, the decoders, payment views, the mandate and price math. |
-| [`apps/server`](apps/server) | Hono. `POST /api/extract` (chat → structured request), `POST /api/sponsor-claim` (gasless claim relayer), `POST /api/voice/session` (voice mode), `/api/agent` (status, activate, run) plus the scheduled agent and its chain-rebuilt log, and `GET /api/market` (BTC/ETH over 24 h). |
+| [`apps/server`](apps/server) | Hono. `GET /health` (process is up; no chain or disk), `POST /api/extract` (chat → structured request), `POST /api/sponsor-claim` (gasless claim relayer), `POST /api/voice/session` (voice mode), `/api/agent` (status, activate, run) plus the scheduled agent and its chain-rebuilt log, and `GET /api/market` (BTC/ETH over 24 h). |
 | [`apps/web`](apps/web) | Vite + React. **Chat** (send, balance, prices, voice), **Agent** (mandate, positions, briefing), **Claim**, **Sent**. Any EIP-1193 browser wallet; on a phone it opens itself inside the MetaMask app. |
 | [`scripts`](scripts) | The testnet smoke test and demo funding. |
 

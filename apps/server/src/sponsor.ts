@@ -5,7 +5,7 @@
 import { type Address, type Hex, isAddress } from "viem";
 import { CLAIM_TYPES, PAYMENT_PENDING, claimDomain, erc20Abi, paymentsAbi, sameAddress } from "@nilo/core";
 import { z } from "zod";
-import { ChainError, chain, client, network, operator, operatorWallet, requireContract, serial, txLink } from "./chain";
+import { ChainError, chain, getRpc, network, operator, operatorWallet, requireContract, serial, txLink } from "./chain";
 
 export const SponsorRequest = z.object({
   id: z.string().regex(/^\d{1,30}$/),
@@ -87,7 +87,7 @@ export async function sponsorClaim(req: z.infer<typeof SponsorRequest>): Promise
   let broadcast = false;
   try {
     // The contract reverts BadPayment for an id it never issued.
-    const payment = await client.readContract({ address: payments, abi: paymentsAbi, functionName: "payments", args: [id] }).catch((e) => {
+    const payment = await getRpc().readContract({ address: payments, abi: paymentsAbi, functionName: "payments", args: [id] }).catch((e) => {
       if (/BadPayment/.test(String((e as Error)?.message ?? e))) throw new ChainError("There is no such payment.", 404);
       throw e;
     });
@@ -102,11 +102,11 @@ export async function sponsorClaim(req: z.infer<typeof SponsorRequest>): Promise
       throw new ChainError("Too many free claims of this sender's payments this hour. Claim paying the gas instead.", 429);
     }
     // Free claims are for wallets that can't pay the gas themselves.
-    const balance = await client.readContract({ address: network.usdc, abi: erc20Abi, functionName: "balanceOf", args: [claimant] });
+    const balance = await getRpc().readContract({ address: network.usdc, abi: erc20Abi, functionName: "balanceOf", args: [claimant] });
     if (balance >= LIMITS.emptyBelow) throw new ChainError("Your wallet has USDC for gas, so claim paying it yourself (a fraction of a cent).", 409);
 
     // The public client also accepts smart-account (ERC-1271) signatures, like the contract does.
-    const valid = await client
+    const valid = await getRpc()
       .verifyTypedData({
         address: claimant,
         domain: claimDomain(chain.id, payments),
@@ -120,7 +120,7 @@ export async function sponsorClaim(req: z.infer<typeof SponsorRequest>): Promise
 
     bySender.set(sender, [...(bySender.get(sender) ?? []), now]);
     const hash = await serial(async () => {
-      const { request } = await client.simulateContract({
+      const { request } = await getRpc().simulateContract({
         account: operator(),
         address: payments,
         abi: paymentsAbi,
@@ -129,7 +129,7 @@ export async function sponsorClaim(req: z.infer<typeof SponsorRequest>): Promise
       });
       const sent = await operatorWallet().writeContract(request);
       broadcast = true;
-      const receipt = await client.waitForTransactionReceipt({ hash: sent, timeout: 30_000 });
+      const receipt = await getRpc().waitForTransactionReceipt({ hash: sent, timeout: 30_000 });
       if (receipt.status !== "success") throw new ChainError("The claim was submitted but the network reverted it.", 409);
       return sent;
     });

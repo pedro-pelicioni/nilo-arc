@@ -15,7 +15,8 @@ import {
   usdcToUnits,
   vaultInfo,
 } from "@nilo/core";
-import { ChainError, client, hasOperator, network, operator, operatorWallet, requireContract, serial, txLink } from "../chain";
+import { ChainError, getRpc, hasOperator, network, operator, operatorWallet, requireContract, serial, txLink } from "../chain";
+import { errorText, logError } from "../errors";
 import { syncFromChain } from "./chainlog";
 import { type Activity, addUser, log, users } from "./store";
 
@@ -24,17 +25,21 @@ const MIN_INVEST = usdcToUnits(0.01);
 
 export { ChainError as AgentError };
 
-export async function mandateOf(user: Address): Promise<Mandate | null> {
-  const raw = await client.readContract({ address: requireContract("agent"), abi: agentAbi, functionName: "mandateOf", args: [user] });
+type ReadOpts = { signal?: AbortSignal };
+
+export async function mandateOf(user: Address, opts?: ReadOpts): Promise<Mandate | null> {
+  const raw = await getRpc().readContract({ address: requireContract("agent"), abi: agentAbi, functionName: "mandateOf", args: [user], ...opts });
   return mandateFromChain(raw);
 }
 
-export const walletUsdc = (user: Address) => client.readContract({ address: network.usdc, abi: erc20Abi, functionName: "balanceOf", args: [user] });
+export const walletUsdc = (user: Address, opts?: ReadOpts) =>
+  getRpc().readContract({ address: network.usdc, abi: erc20Abi, functionName: "balanceOf", args: [user], ...opts });
 
-export const agentAllowance = (user: Address) =>
-  client.readContract({ address: network.usdc, abi: erc20Abi, functionName: "allowance", args: [user, requireContract("agent")] });
+export const agentAllowance = (user: Address, opts?: ReadOpts) =>
+  getRpc().readContract({ address: network.usdc, abi: erc20Abi, functionName: "allowance", args: [user, requireContract("agent")], ...opts });
 
-export const remainingFor = (user: Address) => client.readContract({ address: requireContract("agent"), abi: agentAbi, functionName: "remaining", args: [user] });
+export const remainingFor = (user: Address, opts?: ReadOpts) =>
+  getRpc().readContract({ address: requireContract("agent"), abi: agentAbi, functionName: "remaining", args: [user], ...opts });
 
 // NiloAgent's custom errors (in its ABI, so viem names them), to say why the contract refused an invest.
 const AGENT_ERRORS: Record<string, string> = {
@@ -47,8 +52,8 @@ const AGENT_ERRORS: Record<string, string> = {
   ZeroShares: "the vault would have minted no shares for it.",
 };
 
-function investFailure(e: unknown): string {
-  const message = String((e as Error)?.message ?? e);
+export function investFailure(e: unknown): string {
+  const message = errorText(e);
   const name = Object.keys(AGENT_ERRORS).find((n) => message.includes(n));
   if (name) return AGENT_ERRORS[name];
   if (/allowance/i.test(message)) return "the mandate's allowance is used up. Sign a new mandate to continue.";
@@ -95,7 +100,7 @@ export async function runFor(user: Address, trigger: NonNullable<Activity["trigg
       const name = vaultInfo(network, leg.vault)?.name ?? leg.vault;
       try {
         const hash = await serial(async () => {
-          const { request } = await client.simulateContract({
+          const { request } = await getRpc().simulateContract({
             account: signer,
             address: agent,
             abi: agentAbi,
@@ -103,7 +108,7 @@ export async function runFor(user: Address, trigger: NonNullable<Activity["trigg
             args: [user, leg.vault, leg.amount],
           });
           const sent = await operatorWallet().writeContract(request);
-          const receipt = await client.waitForTransactionReceipt({ hash: sent, timeout: 30_000 });
+          const receipt = await getRpc().waitForTransactionReceipt({ hash: sent, timeout: 30_000 });
           if (receipt.status !== "success") throw new Error("reverted");
           return sent;
         });
@@ -111,7 +116,7 @@ export async function runFor(user: Address, trigger: NonNullable<Activity["trigg
           log({ user, trigger, kind: "invest", vault: leg.vault, amount: usdc, hash, link: txLink(hash), note: `Invested ${usdc} USDC into ${name}. The vault shares are in your wallet.` }),
         );
       } catch (e) {
-        console.error(`agent invest failed for ${user}:`, e);
+        logError(`agent invest failed for ${user}`, e);
         done.push(log({ user, trigger, kind: "error", vault: leg.vault, amount: usdc, note: `${usdc} USDC was not invested: ${investFailure(e)} Your USDC stayed in your wallet.` }));
       }
     }
@@ -132,10 +137,14 @@ export async function activate(user: Address): Promise<Activity[]> {
 }
 
 export async function runAll() {
-  // Finds every wallet with a mandate, even after a restart wiped the local file.
-  await syncFromChain(true);
-  for (const user of users()) {
-    await runFor(user as Address, "schedule").catch((e) => console.error(`agent run failed for ${user}:`, e));
+  try {
+    // Finds every wallet with a mandate, even after a restart wiped the local file.
+    await syncFromChain(true);
+    for (const user of users()) {
+      await runFor(user as Address, "schedule").catch((e) => logError(`agent run failed for ${user}`, e));
+    }
+  } catch (e) {
+    logError("agent run failed", e);
   }
 }
 

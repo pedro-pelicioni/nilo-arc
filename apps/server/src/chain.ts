@@ -3,6 +3,8 @@
 import { type Address, type Hex, createPublicClient, createWalletClient, http, isHex, zeroAddress } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { type NetworkId, NETWORKS, arcChain, explorerTx, makeConfig, sameAddress } from "@nilo/core";
+import { createGatedFetch } from "./gate";
+import { limits } from "./limits";
 
 const id = (process.env.ARC_NETWORK?.trim() || "testnet") as NetworkId;
 if (!(id in NETWORKS)) throw new Error(`ARC_NETWORK must be "testnet" or "mainnet", not "${id}".`);
@@ -10,7 +12,29 @@ if (!(id in NETWORKS)) throw new Error(`ARC_NETWORK must be "testnet" or "mainne
 export const config = makeConfig(id);
 export const network = config.network;
 export const chain = arcChain(network);
-export const client = createPublicClient({ chain, transport: http(process.env.ARC_RPC_URL?.trim() || network.rpcUrl) });
+
+const rpcUrl = process.env.ARC_RPC_URL?.trim() || network.rpcUrl;
+const transport = http(rpcUrl, {
+  timeout: limits.rpcTimeoutMs,
+  // 0 is intentional. viem's shouldRetry retries HTTP 429 and JSON-RPC -32005,
+  // which is what the public Arc RPC returned for mandateOf. A retry is another
+  // call into the same quota.
+  retryCount: limits.rpcRetryCount,
+  retryDelay: 200,
+  fetchFn: createGatedFetch(limits.maxRpcInflight),
+  maxResponseBodySize: limits.maxResponseBodySize,
+});
+
+export const client = createPublicClient({ chain, transport });
+export type Rpc = typeof client;
+
+let current: Rpc = client;
+/** Production uses the shared client. Tests install a fake that never touches the network. */
+export const getRpc = () => current;
+export function setRpcForTests(next: Rpc | null) {
+  current = next ?? client;
+}
+
 export const txLink = (hash: string) => explorerTx(network, hash);
 
 /** A server error with the HTTP status and message the browser should see. */
@@ -50,7 +74,7 @@ export function operator() {
 export const hasOperator = () => !!process.env.NILO_OPERATOR_KEY?.trim();
 
 export function operatorWallet() {
-  return createWalletClient({ account: operator(), chain, transport: http(process.env.ARC_RPC_URL?.trim() || network.rpcUrl) });
+  return createWalletClient({ account: operator(), chain, transport });
 }
 
 /**

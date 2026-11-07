@@ -31,6 +31,16 @@ docker run -d --name nilo-arc --restart unless-stopped -p 5173:5173 \
 `/app/data` keeps the agent's activity log and the list of wallets it watches. Serve it over HTTPS behind any
 reverse proxy.
 
+`GET /health` and `GET /healthz` answer `{ "ok": true }` from memory. They do not read Arc, Coinbase, or the disk.
+The live Render service does not use that path. Its HTTP health check is
+`/api/agent/status/0x0000000000000000000000000000000000000001`. Shipping `/health` does not change that setting.
+The process also answers that exact URL with `{ "ok": true }` and does not call Arc, because a 502 or a slow
+`mandateOf` there fails the probe. A real wallet still reads the chain.
+
+Do not merge this to `main`, and do not change the Render health check path, without Pedro's explicit approval.
+`autoDeploy` is on and the trigger is a commit to `main`, so a merge deploys. See
+[docs/incident-2026-11-07.md](incident-2026-11-07.md).
+
 The public demo runs on Render (free web service, Docker runtime, built from this repository, the environment
 above). Render sets `PORT` itself and the server listens on it. Hosts that build from a Dockerfile (Render, Railway, Fly.io) work too: point them at this
 repository, set the environment above and expose port 5173. The agent runs on a timer inside the server, so the
