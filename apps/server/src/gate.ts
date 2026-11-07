@@ -39,11 +39,13 @@ interface Waiter {
   onAbort: () => void;
 }
 
+export type GatedFetch = typeof fetch & { cooldownRemainingMs: (now?: number) => number };
+
 export function createGatedFetch(
   limit: number,
   inner: typeof fetch = fetch,
   options?: { maxWaiters?: number; fallbackCooldownMs?: number; maxCooldownMs?: number; now?: () => number },
-): typeof fetch {
+): GatedFetch {
   if (limit < 1) throw new Error("RPC concurrency limit must be at least 1.");
   const maxWaiters = options?.maxWaiters ?? limits.maxRpcWaiters;
   const now = options?.now ?? Date.now;
@@ -83,7 +85,7 @@ export function createGatedFetch(
     });
   }
 
-  return async (input, init) => {
+  const gated = async (input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) => {
     const signal = init?.signal ?? undefined;
     if (now() < coolUntil) throw rateLimitError();
     if (active >= limit && waiters.length >= maxWaiters) throw busyError();
@@ -104,4 +106,9 @@ export function createGatedFetch(
       release();
     }
   };
+  return Object.assign(gated, {
+    cooldownRemainingMs(at = Date.now()) {
+      return Math.max(0, coolUntil - at);
+    },
+  });
 }

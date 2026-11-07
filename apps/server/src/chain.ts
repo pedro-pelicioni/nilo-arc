@@ -14,6 +14,19 @@ export const network = config.network;
 export const chain = arcChain(network);
 
 const rpcUrl = process.env.ARC_RPC_URL?.trim() || network.rpcUrl;
+const rpcFetch = createGatedFetch(limits.maxRpcInflight);
+let readCooldown: (now?: number) => number = (now) => rpcFetch.cooldownRemainingMs(now);
+
+/** Milliseconds until a 429 cooldown lets another RPC through. Zero when none is active. */
+export function rpcCooldownRemainingMs(now = Date.now()) {
+  return Math.max(0, readCooldown(now));
+}
+
+/** Tests substitute the clock. Production uses the shared fetch gate. */
+export function setRpcCooldownRemainingForTests(read: ((now?: number) => number) | null) {
+  readCooldown = read ?? ((now) => rpcFetch.cooldownRemainingMs(now));
+}
+
 const transport = http(rpcUrl, {
   timeout: limits.rpcTimeoutMs,
   // 0 is intentional. viem's shouldRetry retries HTTP 429 and JSON-RPC -32005,
@@ -21,7 +34,7 @@ const transport = http(rpcUrl, {
   // call into the same quota.
   retryCount: limits.rpcRetryCount,
   retryDelay: 200,
-  fetchFn: createGatedFetch(limits.maxRpcInflight),
+  fetchFn: rpcFetch,
   maxResponseBodySize: limits.maxResponseBodySize,
 });
 

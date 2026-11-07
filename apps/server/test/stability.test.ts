@@ -15,13 +15,13 @@ delete process.env.NILO_OPERATOR_KEY;
 delete process.env.ARC_RPC_URL;
 
 const { createApp } = await import("../src/app.ts");
-const { network, setRpcForTests } = await import("../src/chain.ts");
-const { syncFromChain, resetSyncForTests } = await import("../src/agent/chainlog.ts");
+const { network, setRpcCooldownRemainingForTests, setRpcForTests } = await import("../src/chain.ts");
+const { historyRetryDelayMs, scheduledDelayForTests, syncFromChain, resetSyncForTests } = await import("../src/agent/chainlog.ts");
 const { resetStoreForTests, syncedBlock } = await import("../src/agent/store.ts");
 const { investFailure } = await import("../src/agent/run.ts");
 const { RENDER_PROBE_ADDRESS, resetRouteLimitsForTests } = await import("../src/agent/routes.ts");
 const { limits, resetLimits } = await import("../src/limits.ts");
-const { errorSummary, resetLogsForTests } = await import("../src/errors.ts");
+const { errorSummary, isShrinkableHistoryError, resetLogsForTests } = await import("../src/errors.ts");
 const { cooldownFromRetryAfter, createGatedFetch } = await import("../src/gate.ts");
 const { shutdownServer } = await import("../src/shutdown.ts");
 const { market, resetMarketForTests } = await import("../src/market.ts");
@@ -62,6 +62,7 @@ beforeEach(() => {
   resetSyncForTests();
   resetRouteLimitsForTests();
   resetMarketForTests();
+  setRpcCooldownRemainingForTests(null);
   setRpcForTests(
     rpc({
       async readContract() {
@@ -337,7 +338,8 @@ describe("stability", { concurrency: false }, () => {
     assert.ok(!body.includes(dump.slice(0, 80)));
     assert.ok(!body.includes("0x3304fb83"));
     assert.equal(logs.length, 1);
-    assert.equal(logs[0], "agent route failed: Request exceeds defined limit.");
+    assert.match(logs[0], /^agent route failed: Request exceeds defined limit\.; details=rate limit exceeded$/);
+    assert.ok(!logs[0].includes("rpc.mainnet"));
   });
 
   it("does not call Arc again after a 429, and does not grow the waiter queue", async () => {
@@ -461,13 +463,12 @@ describe("stability", { concurrency: false }, () => {
       }),
     );
     await syncFromChain(true);
-    const after = calls;
-    assert.ok(after >= 1 && after <= limits.syncMaxCalls);
+    assert.equal(calls, 1);
     assert.equal(syncedBlock(), null);
     await new Promise((r) => setTimeout(r, 40));
-    assert.equal(calls, after);
+    assert.equal(calls, 1);
     assert.ok(logs.every((line) => line.length < 400));
-    assert.ok(logs.some((line) => line.startsWith("agent: could not read NiloAgent events:")));
+    assert.ok(logs.some((line) => line.includes(`from=${network.agentFromBlock}`) && line.includes("calls=1")));
   });
 
   it("keeps the blocks it already read when a later range fails", async () => {
@@ -495,7 +496,128 @@ describe("stability", { concurrency: false }, () => {
     await syncFromChain(true);
     assert.equal(syncedBlock(), from + 10_000n - 1n);
     await new Promise((r) => setTimeout(r, 30));
-    assert.equal(calls, limits.syncMaxCalls);
+    assert.equal(calls, 2);
+  });
+
+  it("shrinks a log range only for a body-size or block-range error", async () => {
+    assert.equal(isShrinkableHistoryError({ name: "HttpRequestError", shortMessage: "HTTP request failed.", status: 502 }), false);
+    assert.equal(isShrinkableHistoryError(new Error("rpc down")), false);
+    assert.equal(isShrinkableHistoryError(new Error("range refused")), false);
+    assert.equal(isShrinkableHistoryError({ name: "ResponseBodyTooLargeError", shortMessage: "HTTP response body exceeded the size limit." }), true);
+    assert.equal(isShrinkableHistoryError({ shortMessage: "eth_getLogs", details: "block range is too large" }), true);
+
+    const from = network.agentFromBlock;
+    const spans: bigint[] = [];
+    let calls = 0;
+    limits.syncRetryMs = 60_000;
+    limits.syncContinueMs = 60_000;
+    const refuse = (kind: "range" | "body") =>
+      kind === "range"
+        ? Object.assign(new Error("too wide"), { name: "RpcRequestError", shortMessage: "block range is too large", details: "exceeds max block range" })
+        : Object.assign(new Error("big"), { name: "ResponseBodyTooLargeError", shortMessage: "HTTP response body exceeded the size limit." });
+    for (const kind of ["range", "body"] as const) {
+      calls = 0;
+      spans.length = 0;
+      resetSyncForTests();
+      resetStoreForTests();
+      setRpcForTests(
+        rpc({
+          async getBlockNumber() {
+            return from + 20_000n;
+          },
+          async getContractEvents(args: { fromBlock: bigint; toBlock: bigint }) {
+            calls++;
+            const span = args.toBlock - args.fromBlock + 1n;
+            spans.push(span);
+            if (calls === 1) throw refuse(kind);
+            return [];
+          },
+          async getBlock() {
+            return { timestamp: 0n };
+          },
+          async readContract() {
+            return 0n;
+          },
+        }),
+      );
+      await syncFromChain(true);
+      assert.equal(spans[1], spans[0] / 2n, kind);
+      assert.ok((syncedBlock() ?? 0n) >= from + spans[1] - 1n, kind);
+    }
+  });
+
+  it("keeps status and cause on a history failure and redacts secrets", async () => {
+    const from = network.agentFromBlock;
+    limits.syncRetryMs = 60_000;
+    setRpcForTests(
+      rpc({
+        async getBlockNumber() {
+          return from + 1_000n;
+        },
+        async getContractEvents() {
+          throw Object.assign(new Error("HTTP request failed."), {
+            name: "HttpRequestError",
+            shortMessage: "HTTP request failed.",
+            status: 502,
+            details: "https://user:pass@rpc.example/v1?api_key=supersecret failed 0x3304fb830000000000000000000000000000000000000001",
+            body: { method: "eth_getLogs", params: ["do-not-log"] },
+            abi: [{ name: "MandateSet", type: "event" }],
+            metaMessages: ['Request body: {"method":"eth_getLogs","secret":"do-not-log"}'],
+            cause: new TypeError("fetch failed"),
+          });
+        },
+        async getBlock() {
+          return { timestamp: 0n };
+        },
+        async readContract() {
+          return 0n;
+        },
+      }),
+    );
+    await syncFromChain(true);
+    assert.equal(logs.length, 1);
+    const line = logs[0];
+    assert.match(line, new RegExp(`from=${from} calls=1`));
+    assert.match(line, /HttpRequestError: HTTP request failed\./);
+    assert.match(line, /status=502/);
+    assert.match(line, /cause=fetch failed/);
+    assert.match(line, /rpc\.example/);
+    assert.ok(!line.includes("user:pass"));
+    assert.ok(!line.includes("supersecret"));
+    assert.ok(!line.includes("do-not-log"));
+    assert.ok(!line.includes("eth_getLogs"));
+    assert.ok(!line.includes("MandateSet"));
+    assert.ok(!line.includes("0x3304fb83"));
+    assert.ok(line.length <= 400);
+  });
+
+  it("schedules the next history pass after the remaining 429 cooldown", async () => {
+    assert.equal(historyRetryDelayMs(15_000, 0), 15_000);
+    assert.equal(historyRetryDelayMs(15_000, 15_000), 15_250);
+    assert.equal(historyRetryDelayMs(15_000, 30_000), 30_250);
+    setRpcCooldownRemainingForTests(() => 30_000);
+    limits.syncRetryMs = 15_000;
+    setRpcForTests(
+      rpc({
+        async getBlockNumber() {
+          throw Object.assign(new Error("HTTP request failed."), { name: "HttpRequestError", shortMessage: "HTTP request failed.", status: 429, details: "rate limit exceeded" });
+        },
+        async getContractEvents() {
+          throw new Error("should not read logs");
+        },
+        async getBlock() {
+          return { timestamp: 0n };
+        },
+        async readContract() {
+          return 0n;
+        },
+      }),
+    );
+    await syncFromChain(true);
+    assert.equal(scheduledDelayForTests(), 30_250);
+    assert.match(logs[0], /from=unknown calls=0/);
+    assert.match(logs[0], /status=429/);
+    setRpcCooldownRemainingForTests(() => 0);
   });
 
   it("caps concurrent RPC fetches and drops an aborted waiter", async () => {
