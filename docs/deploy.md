@@ -31,6 +31,11 @@ docker run -d --name nilo-arc --restart unless-stopped -p 5173:5173 \
 `/app/data` keeps the agent's activity log and the list of wallets it watches. Serve it over HTTPS behind any
 reverse proxy.
 
+`GET /health` (and `GET /healthz`) answers `{ "ok": true }` from memory. It does not read Arc, Coinbase, or the
+disk. On Render, set the HTTP health check path to `/health`. The probe fails when the process does not answer
+within 5 seconds; a path that waits on `eth_getLogs` or a disk stat will time out while the process is still up.
+The default TCP check only proves the port accepts a connection.
+
 The public demo runs on Render (free web service, Docker runtime, built from this repository, the environment
 above). Render sets `PORT` itself and the server listens on it. Hosts that build from a Dockerfile (Render, Railway, Fly.io) work too: point them at this
 repository, set the environment above and expose port 5173. The agent runs on a timer inside the server, so the
